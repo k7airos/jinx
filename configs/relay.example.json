@@ -1,0 +1,31 @@
+{
+  "server": {
+    "listen_addr": "127.0.0.1:18080",
+    "enable_cors": false
+  },
+  "upstream": {
+    "enabled": false,
+    "ws_url": "",
+    "auto_reconnect": false,
+    "reconnect_interval_sec": 3
+  },
+  "group_control": {
+    "monitor_all": false,
+    "monitored_groups": [],
+    "exposed_groups": [],
+    "group_aliases": {},
+    "drop_unexposed_completely": true
+  },
+  "filters": {
+    "keyword_blocklist": [],
+    "regex_blocklist": [],
+    "sender_blocklist": [],
+    "allowed_types": [
+      1,
+      49,
+      81
+    ],
+    "clean_content": false,
+    "ignore_echo": false
+  }
+}

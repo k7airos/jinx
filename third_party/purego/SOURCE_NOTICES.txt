@@ -1,0 +1,386 @@
+Upstream source notice excerpts, reproduced without changing the original lines.
+This index is generated for JINX distribution; it is not an upstream NOTICE file.
+The applicable full licenses are listed in THIRD_PARTY_NOTICES.md and third_party/SOURCES.json.
+
+${GOMODCACHE}/github.com/ebitengine/purego@v0.11.1/abi_amd64.h
+// Copyright 2021 The Go Authors. All rights reserved.
+
+${GOMODCACHE}/github.com/ebitengine/purego@v0.11.1/abi_arm64.h
+// Copyright 2021 The Go Authors. All rights reserved.
+
+${GOMODCACHE}/github.com/ebitengine/purego@v0.11.1/abi_loong64.h
+// Copyright 2022 The Go Authors. All rights reserved.
+
+${GOMODCACHE}/github.com/ebitengine/purego@v0.11.1/cdecl.go
+// SPDX-FileCopyrightText: 2026 The Ebitengine Authors
+
+${GOMODCACHE}/github.com/ebitengine/purego@v0.11.1/cgo.go
+// SPDX-FileCopyrightText: 2022 The Ebitengine Authors
+
+${GOMODCACHE}/github.com/ebitengine/purego@v0.11.1/cstrings/nsstrings_darwin.go
+// SPDX-FileCopyrightText: 2026 The Ebitengine Authors
+
+${GOMODCACHE}/github.com/ebitengine/purego@v0.11.1/dlerror.go
+// SPDX-FileCopyrightText: 2023 The Ebitengine Authors
+
+${GOMODCACHE}/github.com/ebitengine/purego@v0.11.1/dlfcn.go
+// SPDX-FileCopyrightText: 2022 The Ebitengine Authors
+
+${GOMODCACHE}/github.com/ebitengine/purego@v0.11.1/dlfcn_android.go
+// SPDX-FileCopyrightText: 2024 The Ebitengine Authors
+
+${GOMODCACHE}/github.com/ebitengine/purego@v0.11.1/dlfcn_darwin.go
+// SPDX-FileCopyrightText: 2022 The Ebitengine Authors
+
+${GOMODCACHE}/github.com/ebitengine/purego@v0.11.1/dlfcn_freebsd.go
+// SPDX-FileCopyrightText: 2022 The Ebitengine Authors
+
+${GOMODCACHE}/github.com/ebitengine/purego@v0.11.1/dlfcn_linux.go
+// SPDX-FileCopyrightText: 2022 The Ebitengine Authors
+
+${GOMODCACHE}/github.com/ebitengine/purego@v0.11.1/dlfcn_netbsd.go
+// SPDX-FileCopyrightText: 2025 The Ebitengine Authors
+
+${GOMODCACHE}/github.com/ebitengine/purego@v0.11.1/dlfcn_nocgo_freebsd.go
+// SPDX-FileCopyrightText: 2022 The Ebitengine Authors
+
+${GOMODCACHE}/github.com/ebitengine/purego@v0.11.1/dlfcn_nocgo_linux.go
+// SPDX-FileCopyrightText: 2022 The Ebitengine Authors
+
+${GOMODCACHE}/github.com/ebitengine/purego@v0.11.1/dlfcn_nocgo_netbsd.go
+// SPDX-FileCopyrightText: 2025 The Ebitengine Authors
+
+${GOMODCACHE}/github.com/ebitengine/purego@v0.11.1/dlfcn_playground.go
+// SPDX-FileCopyrightText: 2024 The Ebitengine Authors
+
+${GOMODCACHE}/github.com/ebitengine/purego@v0.11.1/dlfcn_stubs.s
+// SPDX-FileCopyrightText: 2022 The Ebitengine Authors
+
+${GOMODCACHE}/github.com/ebitengine/purego@v0.11.1/func.go
+// SPDX-FileCopyrightText: 2022 The Ebitengine Authors
+
+${GOMODCACHE}/github.com/ebitengine/purego@v0.11.1/gen.go
+// SPDX-FileCopyrightText: 2025 The Ebitengine Authors
+
+${GOMODCACHE}/github.com/ebitengine/purego@v0.11.1/go_runtime.go
+// SPDX-FileCopyrightText: 2022 The Ebitengine Authors
+
+${GOMODCACHE}/github.com/ebitengine/purego@v0.11.1/internal/buildtest/main.go
+// SPDX-FileCopyrightText: 2024 The Ebitengine Authors
+
+${GOMODCACHE}/github.com/ebitengine/purego@v0.11.1/internal/cgo/dlfcn_cgo_unix.go
+// SPDX-FileCopyrightText: 2024 The Ebitengine Authors
+
+${GOMODCACHE}/github.com/ebitengine/purego@v0.11.1/internal/cgo/empty.go
+// SPDX-FileCopyrightText: 2024 The Ebitengine Authors
+
+${GOMODCACHE}/github.com/ebitengine/purego@v0.11.1/internal/cgo/syscall_cgo_unix.go
+// SPDX-FileCopyrightText: 2022 The Ebitengine Authors
+
+${GOMODCACHE}/github.com/ebitengine/purego@v0.11.1/internal/fakecgo/abi_amd64.h
+// Copyright 2021 The Go Authors. All rights reserved.
+
+${GOMODCACHE}/github.com/ebitengine/purego@v0.11.1/internal/fakecgo/abi_arm64.h
+// Copyright 2021 The Go Authors. All rights reserved.
+
+${GOMODCACHE}/github.com/ebitengine/purego@v0.11.1/internal/fakecgo/abi_loong64.h
+// Copyright 2022 The Go Authors. All rights reserved.
+
+${GOMODCACHE}/github.com/ebitengine/purego@v0.11.1/internal/fakecgo/abi_ppc64x.h
+// Copyright 2023 The Go Authors. All rights reserved.
+
+${GOMODCACHE}/github.com/ebitengine/purego@v0.11.1/internal/fakecgo/abi_riscv64.h
+// Copyright 2026 The Go Authors. All rights reserved.
+
+${GOMODCACHE}/github.com/ebitengine/purego@v0.11.1/internal/fakecgo/asm_386.s
+// Copyright 2009 The Go Authors. All rights reserved.
+
+${GOMODCACHE}/github.com/ebitengine/purego@v0.11.1/internal/fakecgo/asm_amd64.s
+// Copyright 2009 The Go Authors. All rights reserved.
+
+${GOMODCACHE}/github.com/ebitengine/purego@v0.11.1/internal/fakecgo/asm_arm.s
+// Copyright 2012 The Go Authors. All rights reserved.
+
+${GOMODCACHE}/github.com/ebitengine/purego@v0.11.1/internal/fakecgo/asm_arm64.s
+// Copyright 2015 The Go Authors. All rights reserved.
+
+${GOMODCACHE}/github.com/ebitengine/purego@v0.11.1/internal/fakecgo/asm_loong64.s
+// Copyright 2022 The Go Authors. All rights reserved.
+
+${GOMODCACHE}/github.com/ebitengine/purego@v0.11.1/internal/fakecgo/asm_ppc64le.s
+// Copyright 2014 The Go Authors. All rights reserved.
+
+${GOMODCACHE}/github.com/ebitengine/purego@v0.11.1/internal/fakecgo/asm_riscv64.s
+// Copyright 2020 The Go Authors. All rights reserved.
+
+${GOMODCACHE}/github.com/ebitengine/purego@v0.11.1/internal/fakecgo/asm_s390x.s
+// Copyright 2016 The Go Authors. All rights reserved.
+
+${GOMODCACHE}/github.com/ebitengine/purego@v0.11.1/internal/fakecgo/callbacks.go
+// Copyright 2011 The Go Authors. All rights reserved.
+
+${GOMODCACHE}/github.com/ebitengine/purego@v0.11.1/internal/fakecgo/doc.go
+// SPDX-FileCopyrightText: 2022 The Ebitengine Authors
+
+${GOMODCACHE}/github.com/ebitengine/purego@v0.11.1/internal/fakecgo/fakecgo.go
+// SPDX-FileCopyrightText: 2025 The Ebitengine Authors
+
+${GOMODCACHE}/github.com/ebitengine/purego@v0.11.1/internal/fakecgo/freebsd.go
+// Copyright 2010 The Go Authors. All rights reserved.
+
+${GOMODCACHE}/github.com/ebitengine/purego@v0.11.1/internal/fakecgo/gen.go
+// SPDX-FileCopyrightText: 2022 The Ebitengine Authors
+// SPDX-FileCopyrightText: 2022 The Ebitengine Authors
+// SPDX-FileCopyrightText: 2022 The Ebitengine Authors
+
+${GOMODCACHE}/github.com/ebitengine/purego@v0.11.1/internal/fakecgo/go_darwin.go
+// Copyright 2011 The Go Authors. All rights reserved.
+
+${GOMODCACHE}/github.com/ebitengine/purego@v0.11.1/internal/fakecgo/go_freebsd.go
+// Copyright 2011 The Go Authors. All rights reserved.
+
+${GOMODCACHE}/github.com/ebitengine/purego@v0.11.1/internal/fakecgo/go_libinit.go
+// SPDX-FileCopyrightText: 2022 The Ebitengine Authors
+
+${GOMODCACHE}/github.com/ebitengine/purego@v0.11.1/internal/fakecgo/go_linux.go
+// Copyright 2011 The Go Authors. All rights reserved.
+
+${GOMODCACHE}/github.com/ebitengine/purego@v0.11.1/internal/fakecgo/go_netbsd.go
+// Copyright 2011 The Go Authors. All rights reserved.
+
+${GOMODCACHE}/github.com/ebitengine/purego@v0.11.1/internal/fakecgo/go_setenv.go
+// SPDX-FileCopyrightText: 2022 The Ebitengine Authors
+
+${GOMODCACHE}/github.com/ebitengine/purego@v0.11.1/internal/fakecgo/go_util.go
+// SPDX-FileCopyrightText: 2022 The Ebitengine Authors
+
+${GOMODCACHE}/github.com/ebitengine/purego@v0.11.1/internal/fakecgo/iscgo.go
+// Copyright 2010 The Go Authors. All rights reserved.
+
+${GOMODCACHE}/github.com/ebitengine/purego@v0.11.1/internal/fakecgo/libcgo.go
+// SPDX-FileCopyrightText: 2022 The Ebitengine Authors
+
+${GOMODCACHE}/github.com/ebitengine/purego@v0.11.1/internal/fakecgo/libcgo_darwin.go
+// SPDX-FileCopyrightText: 2022 The Ebitengine Authors
+
+${GOMODCACHE}/github.com/ebitengine/purego@v0.11.1/internal/fakecgo/libcgo_freebsd.go
+// SPDX-FileCopyrightText: 2022 The Ebitengine Authors
+
+${GOMODCACHE}/github.com/ebitengine/purego@v0.11.1/internal/fakecgo/libcgo_linux.go
+// SPDX-FileCopyrightText: 2022 The Ebitengine Authors
+
+${GOMODCACHE}/github.com/ebitengine/purego@v0.11.1/internal/fakecgo/libcgo_netbsd.go
+// SPDX-FileCopyrightText: 2025 The Ebitengine Authors
+
+${GOMODCACHE}/github.com/ebitengine/purego@v0.11.1/internal/fakecgo/linux.go
+// Copyright 2016 The Go Authors. All rights reserved.
+
+${GOMODCACHE}/github.com/ebitengine/purego@v0.11.1/internal/fakecgo/netbsd.go
+// Copyright 2010 The Go Authors. All rights reserved.
+
+${GOMODCACHE}/github.com/ebitengine/purego@v0.11.1/internal/fakecgo/setenv.go
+// Copyright 2011 The Go Authors. All rights reserved.
+
+${GOMODCACHE}/github.com/ebitengine/purego@v0.11.1/internal/fakecgo/threadentry_amd64.go
+// SPDX-FileCopyrightText: 2026 The Ebitengine Authors
+
+${GOMODCACHE}/github.com/ebitengine/purego@v0.11.1/internal/fakecgo/threadentry_noasm.go
+// SPDX-FileCopyrightText: 2026 The Ebitengine Authors
+
+${GOMODCACHE}/github.com/ebitengine/purego@v0.11.1/internal/fakecgo/trampolines_386.s
+// SPDX-FileCopyrightText: 2026 The Ebitengine Authors
+
+${GOMODCACHE}/github.com/ebitengine/purego@v0.11.1/internal/fakecgo/trampolines_amd64.s
+// SPDX-FileCopyrightText: 2022 The Ebitengine Authors
+
+${GOMODCACHE}/github.com/ebitengine/purego@v0.11.1/internal/fakecgo/trampolines_arm.s
+// SPDX-FileCopyrightText: 2026 The Ebitengine Authors
+
+${GOMODCACHE}/github.com/ebitengine/purego@v0.11.1/internal/fakecgo/trampolines_arm64.s
+// SPDX-FileCopyrightText: 2022 The Ebitengine Authors
+
+${GOMODCACHE}/github.com/ebitengine/purego@v0.11.1/internal/fakecgo/trampolines_linux_386.s
+// SPDX-FileCopyrightText: 2026 The Ebitengine Authors
+
+${GOMODCACHE}/github.com/ebitengine/purego@v0.11.1/internal/fakecgo/trampolines_linux_amd64.s
+// SPDX-FileCopyrightText: 2026 The Ebitengine Authors
+
+${GOMODCACHE}/github.com/ebitengine/purego@v0.11.1/internal/fakecgo/trampolines_linux_arm.s
+// SPDX-FileCopyrightText: 2026 The Ebitengine Authors
+
+${GOMODCACHE}/github.com/ebitengine/purego@v0.11.1/internal/fakecgo/trampolines_linux_arm64.s
+// SPDX-FileCopyrightText: 2026 The Ebitengine Authors
+
+${GOMODCACHE}/github.com/ebitengine/purego@v0.11.1/internal/fakecgo/trampolines_linux_loong64.s
+// SPDX-FileCopyrightText: 2026 The Ebitengine Authors
+
+${GOMODCACHE}/github.com/ebitengine/purego@v0.11.1/internal/fakecgo/trampolines_linux_ppc64le.s
+// SPDX-FileCopyrightText: 2026 The Ebitengine Authors
+
+${GOMODCACHE}/github.com/ebitengine/purego@v0.11.1/internal/fakecgo/trampolines_linux_riscv64.s
+// SPDX-FileCopyrightText: 2026 The Ebitengine Authors
+
+${GOMODCACHE}/github.com/ebitengine/purego@v0.11.1/internal/fakecgo/trampolines_linux_s390x.s
+// SPDX-FileCopyrightText: 2022 The Ebitengine Authors
+
+${GOMODCACHE}/github.com/ebitengine/purego@v0.11.1/internal/fakecgo/trampolines_loong64.s
+// SPDX-FileCopyrightText: 2025 The Ebitengine Authors
+
+${GOMODCACHE}/github.com/ebitengine/purego@v0.11.1/internal/fakecgo/trampolines_ppc64le.s
+// SPDX-FileCopyrightText: 2026 The Ebitengine Authors
+
+${GOMODCACHE}/github.com/ebitengine/purego@v0.11.1/internal/fakecgo/trampolines_riscv64.s
+// SPDX-FileCopyrightText: 2026 The Ebitengine Authors
+
+${GOMODCACHE}/github.com/ebitengine/purego@v0.11.1/internal/fakecgo/trampolines_s390x.s
+// SPDX-FileCopyrightText: 2026 The Ebitengine Authors
+
+${GOMODCACHE}/github.com/ebitengine/purego@v0.11.1/internal/fakecgo/zsymbols.go
+// SPDX-FileCopyrightText: 2022 The Ebitengine Authors
+
+${GOMODCACHE}/github.com/ebitengine/purego@v0.11.1/internal/fakecgo/zsymbols_darwin.go
+// SPDX-FileCopyrightText: 2022 The Ebitengine Authors
+
+${GOMODCACHE}/github.com/ebitengine/purego@v0.11.1/internal/fakecgo/zsymbols_freebsd.go
+// SPDX-FileCopyrightText: 2022 The Ebitengine Authors
+
+${GOMODCACHE}/github.com/ebitengine/purego@v0.11.1/internal/fakecgo/zsymbols_linux.go
+// SPDX-FileCopyrightText: 2022 The Ebitengine Authors
+
+${GOMODCACHE}/github.com/ebitengine/purego@v0.11.1/internal/fakecgo/zsymbols_netbsd.go
+// SPDX-FileCopyrightText: 2022 The Ebitengine Authors
+
+${GOMODCACHE}/github.com/ebitengine/purego@v0.11.1/internal/fakecgo/ztrampolines_darwin.s
+// SPDX-FileCopyrightText: 2022 The Ebitengine Authors
+
+${GOMODCACHE}/github.com/ebitengine/purego@v0.11.1/internal/fakecgo/ztrampolines_freebsd.s
+// SPDX-FileCopyrightText: 2022 The Ebitengine Authors
+
+${GOMODCACHE}/github.com/ebitengine/purego@v0.11.1/internal/fakecgo/ztrampolines_linux.s
+// SPDX-FileCopyrightText: 2022 The Ebitengine Authors
+
+${GOMODCACHE}/github.com/ebitengine/purego@v0.11.1/internal/fakecgo/ztrampolines_netbsd.s
+// SPDX-FileCopyrightText: 2022 The Ebitengine Authors
+
+${GOMODCACHE}/github.com/ebitengine/purego@v0.11.1/internal/fakecgo/ztrampolines_stubs.s
+// SPDX-FileCopyrightText: 2022 The Ebitengine Authors
+
+${GOMODCACHE}/github.com/ebitengine/purego@v0.11.1/internal/load/load_unix.go
+// SPDX-FileCopyrightText: 2024 The Ebitengine Authors
+
+${GOMODCACHE}/github.com/ebitengine/purego@v0.11.1/internal/load/load_windows.go
+// SPDX-FileCopyrightText: 2024 The Ebitengine Authors
+
+${GOMODCACHE}/github.com/ebitengine/purego@v0.11.1/internal/strings/strings.go
+// SPDX-FileCopyrightText: 2022 The Ebitengine Authors
+
+${GOMODCACHE}/github.com/ebitengine/purego@v0.11.1/is_ios.go
+// SPDX-FileCopyrightText: 2022 The Ebitengine Authors
+
+${GOMODCACHE}/github.com/ebitengine/purego@v0.11.1/nocgo.go
+// SPDX-FileCopyrightText: 2022 The Ebitengine Authors
+
+${GOMODCACHE}/github.com/ebitengine/purego@v0.11.1/objc/objc_block_darwin.go
+// SPDX-FileCopyrightText: 2025 The Ebitengine Authors
+
+${GOMODCACHE}/github.com/ebitengine/purego@v0.11.1/objc/objc_runtime_darwin.go
+// SPDX-FileCopyrightText: 2022 The Ebitengine Authors
+
+${GOMODCACHE}/github.com/ebitengine/purego@v0.11.1/struct_amd64.go
+// SPDX-FileCopyrightText: 2024 The Ebitengine Authors
+
+${GOMODCACHE}/github.com/ebitengine/purego@v0.11.1/struct_arm.go
+// SPDX-FileCopyrightText: 2025 The Ebitengine Authors
+
+${GOMODCACHE}/github.com/ebitengine/purego@v0.11.1/struct_arm64.go
+// SPDX-FileCopyrightText: 2024 The Ebitengine Authors
+
+${GOMODCACHE}/github.com/ebitengine/purego@v0.11.1/struct_loong64.go
+// SPDX-FileCopyrightText: 2025 The Ebitengine Authors
+
+${GOMODCACHE}/github.com/ebitengine/purego@v0.11.1/struct_other.go
+// SPDX-FileCopyrightText: 2026 The Ebitengine Authors
+
+${GOMODCACHE}/github.com/ebitengine/purego@v0.11.1/struct_ppc64le.go
+// SPDX-FileCopyrightText: 2026 The Ebitengine Authors
+
+${GOMODCACHE}/github.com/ebitengine/purego@v0.11.1/struct_riscv64.go
+// SPDX-FileCopyrightText: 2026 The Ebitengine Authors
+
+${GOMODCACHE}/github.com/ebitengine/purego@v0.11.1/struct_s390x.go
+// SPDX-FileCopyrightText: 2026 The Ebitengine Authors
+
+${GOMODCACHE}/github.com/ebitengine/purego@v0.11.1/sys_386.s
+// SPDX-FileCopyrightText: 2026 The Ebitengine Authors
+
+${GOMODCACHE}/github.com/ebitengine/purego@v0.11.1/sys_amd64.s
+// SPDX-FileCopyrightText: 2022 The Ebitengine Authors
+
+${GOMODCACHE}/github.com/ebitengine/purego@v0.11.1/sys_arm.s
+// SPDX-FileCopyrightText: 2026 The Ebitengine Authors
+
+${GOMODCACHE}/github.com/ebitengine/purego@v0.11.1/sys_arm64.s
+// SPDX-FileCopyrightText: 2022 The Ebitengine Authors
+
+${GOMODCACHE}/github.com/ebitengine/purego@v0.11.1/sys_loong64.s
+// SPDX-FileCopyrightText: 2025 The Ebitengine Authors
+
+${GOMODCACHE}/github.com/ebitengine/purego@v0.11.1/sys_ppc64le.s
+// SPDX-FileCopyrightText: 2026 The Ebitengine Authors
+
+${GOMODCACHE}/github.com/ebitengine/purego@v0.11.1/sys_riscv64.s
+// SPDX-FileCopyrightText: 2026 The Ebitengine Authors
+
+${GOMODCACHE}/github.com/ebitengine/purego@v0.11.1/sys_s390x.s
+// SPDX-FileCopyrightText: 2026 The Ebitengine Authors
+
+${GOMODCACHE}/github.com/ebitengine/purego@v0.11.1/sys_unix_386.s
+// SPDX-FileCopyrightText: 2026 The Ebitengine Authors
+
+${GOMODCACHE}/github.com/ebitengine/purego@v0.11.1/sys_unix_arm.s
+// SPDX-FileCopyrightText: 2026 The Ebitengine Authors
+
+${GOMODCACHE}/github.com/ebitengine/purego@v0.11.1/sys_unix_arm64.s
+// SPDX-FileCopyrightText: 2023 The Ebitengine Authors
+
+${GOMODCACHE}/github.com/ebitengine/purego@v0.11.1/sys_unix_loong64.s
+// SPDX-FileCopyrightText: 2025 The Ebitengine Authors
+
+${GOMODCACHE}/github.com/ebitengine/purego@v0.11.1/sys_unix_ppc64le.s
+// SPDX-FileCopyrightText: 2026 The Ebitengine Authors
+
+${GOMODCACHE}/github.com/ebitengine/purego@v0.11.1/sys_unix_riscv64.s
+// SPDX-FileCopyrightText: 2026 The Ebitengine Authors
+
+${GOMODCACHE}/github.com/ebitengine/purego@v0.11.1/sys_unix_s390x.s
+// SPDX-FileCopyrightText: 2026 The Ebitengine Authors
+
+${GOMODCACHE}/github.com/ebitengine/purego@v0.11.1/syscall.go
+// SPDX-FileCopyrightText: 2022 The Ebitengine Authors
+
+${GOMODCACHE}/github.com/ebitengine/purego@v0.11.1/syscall_32bit.go
+// SPDX-FileCopyrightText: 2022 The Ebitengine Authors
+
+${GOMODCACHE}/github.com/ebitengine/purego@v0.11.1/syscall_cgo_linux.go
+// SPDX-FileCopyrightText: 2022 The Ebitengine Authors
+
+${GOMODCACHE}/github.com/ebitengine/purego@v0.11.1/syscall_notstackargs.go
+// SPDX-FileCopyrightText: 2026 The Ebitengine Authors
+
+${GOMODCACHE}/github.com/ebitengine/purego@v0.11.1/syscall_ppc64le.go
+// SPDX-FileCopyrightText: 2022 The Ebitengine Authors
+
+${GOMODCACHE}/github.com/ebitengine/purego@v0.11.1/syscall_stackargs_ppc64le.go
+// SPDX-FileCopyrightText: 2026 The Ebitengine Authors
+
+${GOMODCACHE}/github.com/ebitengine/purego@v0.11.1/syscall_stackargs_s390x.go
+// SPDX-FileCopyrightText: 2026 The Ebitengine Authors
+
+${GOMODCACHE}/github.com/ebitengine/purego@v0.11.1/syscall_unix.go
+// SPDX-FileCopyrightText: 2022 The Ebitengine Authors
+
+${GOMODCACHE}/github.com/ebitengine/purego@v0.11.1/syscall_windows.go
+// SPDX-FileCopyrightText: 2022 The Ebitengine Authors
+
+${GOMODCACHE}/github.com/ebitengine/purego@v0.11.1/wincallback.go
+// Copyright 2014 The Go Authors. All rights reserved.

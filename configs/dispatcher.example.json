@@ -1,0 +1,42 @@
+{
+  "server": {
+    "listen_addr": "127.0.0.1:18088"
+  },
+  "relay": {
+    "stream_url": "http://127.0.0.1:18080/api/v1/stream"
+  },
+  "bridge": {
+    "url": "http://127.0.0.1:18033",
+    "dry_run": true,
+    "timeout_sec": 30
+  },
+  "hermes": {
+    "bin_path": "./not-configured-backend",
+    "profile": "demo",
+    "profiles_dir": "./not-configured-profiles",
+    "timeout_sec": 90,
+    "max_concurrent": 4
+  },
+  "rules": {
+    "batch_size": 7,
+    "idle_timeout_sec": 4,
+    "max_batch_wait_sec": 15,
+    "max_message_age_sec": 180,
+    "laya_url": "",
+    "laya_filter": false,
+    "bypass_decision_on_mention": false,
+    "bot_names": [
+      "DemoJinx"
+    ],
+    "self_sender_ids": [],
+    "group_whitelist": [],
+    "group_profiles": {},
+    "group_other_bots": {},
+    "group_rules": {},
+    "default_profile": "",
+    "keyword_blocklist": [],
+    "ignore_xml": false,
+    "session_max_turns": 0,
+    "session_max_age_sec": 0
+  }
+}

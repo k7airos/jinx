@@ -1,0 +1,920 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>微信群消息监控与数据中继控制台 (JINX Relay)</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #0f172a;
+      --card-bg: #1e293b;
+      --card-border: #334155;
+      --text: #f8fafc;
+      --text-muted: #94a3b8;
+      --primary: #3b82f6;
+      --primary-hover: #2563eb;
+      --success: #10b981;
+      --warning: #f59e0b;
+      --danger: #ef4444;
+      --badge-bg: #334155;
+      --radius: 8px;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+    body { background-color: var(--bg); color: var(--text); padding: 20px; line-height: 1.5; font-size: 14px; }
+    .container { max-width: 1400px; margin: 0 auto; }
+
+    /* Header */
+    header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; padding-bottom: 16px; border-bottom: 1px solid var(--card-border); }
+    .logo { display: flex; align-items: center; gap: 12px; }
+    .logo h1 { font-size: 20px; font-weight: 700; color: #fff; }
+    .logo span { background: #2563eb33; color: #60a5fa; font-size: 12px; padding: 2px 8px; border-radius: 9999px; border: 1px solid #3b82f644; }
+
+    /* Stats Bar */
+    .stats-bar { display: flex; align-items: center; overflow-x: auto; gap: 16px; padding: 8px 0; margin-bottom: 12px; font-size: 12px; }
+    .stat-item { display: flex; align-items: baseline; flex: 0 0 auto; gap: 6px; white-space: nowrap; }
+    .stat-item + .stat-item { border-left: 1px solid var(--card-border); padding-left: 16px; }
+    .stat-item dt { color: var(--text-muted); }
+    .stat-item dd { font-size: 14px; font-weight: 600; font-variant-numeric: tabular-nums; }
+
+    /* Nav Tabs */
+    .tabs { display: flex; gap: 8px; margin-bottom: 20px; border-bottom: 1px solid var(--card-border); padding-bottom: 10px; }
+    .tab-btn { background: none; border: none; color: var(--text-muted); padding: 8px 16px; font-size: 14px; font-weight: 600; cursor: pointer; border-radius: 6px; transition: all 0.2s; }
+    .tab-btn:hover { color: #fff; background: rgba(255,255,255,0.05); }
+    .tab-btn.active { color: #fff; background: var(--primary); }
+
+    /* Panels */
+    .panel { display: none; }
+    .panel.active { display: block; }
+
+    /* Cards & Grids */
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+    .grid-2 > .card { min-width: 0; }
+    @media (max-width: 900px) { .grid-2 { grid-template-columns: 1fr; } }
+    .card { background: var(--card-bg); border: 1px solid var(--card-border); border-radius: var(--radius); padding: 20px; margin-bottom: 20px; }
+    .card-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
+    .card-title { font-size: 16px; font-weight: 600; }
+
+    /* Buttons & Inputs */
+    .btn { background: var(--primary); color: #fff; border: none; padding: 8px 14px; border-radius: 6px; cursor: pointer; font-weight: 500; font-size: 13px; display: inline-flex; align-items: center; gap: 6px; transition: 0.2s; }
+    .btn:hover { background: var(--primary-hover); }
+    .btn-secondary { background: #334155; color: #fff; }
+    .btn-secondary:hover { background: #475569; }
+    .btn-danger { background: var(--danger); }
+    .btn-danger:hover { background: #dc2626; }
+    .btn-sm { padding: 4px 8px; font-size: 12px; }
+
+    input[type="text"], input[type="number"], textarea, select {
+      width: 100%; background: #0f172a; border: 1px solid var(--card-border); border-radius: 6px; padding: 8px 12px; color: #fff; font-size: 13px; outline: none; transition: border-color 0.2s;
+    }
+    input[type="text"]:focus, textarea:focus, select:focus { border-color: var(--primary); }
+    .form-group { margin-bottom: 14px; }
+    .form-label { display: block; font-size: 12px; font-weight: 600; color: var(--text-muted); margin-bottom: 6px; }
+    .form-help { font-size: 11px; color: var(--text-muted); margin-top: 4px; }
+
+    /* Toggle Switch */
+    .switch-label { display: flex; align-items: center; gap: 10px; cursor: pointer; user-select: none; }
+    .switch { position: relative; display: inline-block; width: 42px; height: 22px; }
+    .switch input { opacity: 0; width: 0; height: 0; }
+    .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #334155; transition: .3s; border-radius: 22px; }
+    .slider:before { position: absolute; content: ""; height: 16px; width: 16px; left: 3px; bottom: 3px; background-color: white; transition: .3s; border-radius: 50%; }
+    input:checked + .slider { background-color: var(--success); }
+    input:checked + .slider:before { transform: translateX(20px); }
+
+    /* Tables */
+    table { width: 100%; border-collapse: collapse; text-align: left; }
+    th { padding: 10px 12px; font-size: 12px; font-weight: 600; color: var(--text-muted); border-bottom: 1px solid var(--card-border); }
+    td { padding: 12px; border-bottom: 1px solid var(--card-border); font-size: 13px; vertical-align: middle; }
+    tr:hover td { background: rgba(255,255,255,0.02); }
+
+    /* Badges */
+    .badge { display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; border-radius: 9999px; font-size: 11px; font-weight: 600; }
+    .badge-forward { background: rgba(16, 185, 129, 0.2); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.4); }
+    .badge-unexposed { background: rgba(245, 158, 11, 0.2); color: #fbbf24; border: 1px solid rgba(245, 158, 11, 0.4); }
+    .badge-blocked { background: rgba(239, 68, 68, 0.2); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.4); }
+    .badge-secondary { background: #334155; color: #cbd5e1; }
+
+    /* Tag Input Container */
+    .tags-container { display: flex; flex-wrap: wrap; gap: 6px; padding: 8px; background: #0f172a; border: 1px solid var(--card-border); border-radius: 6px; min-height: 42px; margin-bottom: 8px; }
+    .tag-item { display: inline-flex; align-items: center; gap: 6px; background: #334155; color: #fff; padding: 3px 8px; border-radius: 4px; font-size: 12px; }
+    .tag-remove { cursor: pointer; opacity: 0.6; }
+    .tag-remove:hover { opacity: 1; color: var(--danger); }
+
+    /* Code block */
+    pre { background: #0f172a; padding: 12px; border-radius: 6px; font-family: monospace; font-size: 12px; color: #38bdf8; overflow-x: auto; border: 1px solid var(--card-border); }
+
+    /* Live stream scroll list */
+    .msg-stream { max-height: 600px; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; }
+    .msg-card { background: #0f172a; border: 1px solid var(--card-border); border-radius: 6px; padding: 10px 14px; display: flex; flex-direction: column; gap: 6px; transition: all 0.2s; }
+    .msg-card.flash { animation: highlight 1.5s ease-out; }
+    @keyframes highlight { from { background: #1e3a8a; } to { background: #0f172a; } }
+    .msg-header { display: flex; justify-content: space-between; align-items: center; font-size: 12px; color: var(--text-muted); }
+    .msg-content { color: #f8fafc; font-size: 13px; word-break: break-word; white-space: pre-wrap; }
+    .msg-raw { color: var(--text-muted); font-size: 12px; }
+    .msg-raw summary { cursor: pointer; }
+    .msg-raw pre { max-height: 240px; overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere; }
+    .msg-footer { display: flex; gap: 8px; align-items: center; font-size: 11px; }
+
+    .tabs { flex-wrap: wrap; }
+    .toolbar { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+    .notice { color: var(--text-muted); padding: 12px 0; white-space: pre-wrap; overflow-wrap: anywhere; }
+    .msg-detail { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; color: var(--text-muted); font-size: 12px; }
+    a { color: #7dd3fc; overflow-wrap: anywhere; }
+    button:disabled, input:disabled { opacity: .5; cursor: not-allowed; }
+    :focus-visible { outline: 2px solid #7dd3fc; outline-offset: 3px; }
+    .switch input:focus-visible + .slider { outline: 2px solid #7dd3fc; outline-offset: 3px; }
+    .switch input:disabled + .slider { opacity: .5; cursor: not-allowed; }
+    .msg-footer, .msg-header { flex-wrap: wrap; gap: 8px; }
+    @media (max-width: 900px) { .grid-2 > .card { grid-column: 1 !important; } }
+    @media (max-width: 650px) {
+      body { padding: 12px; }
+      header, .card-header { align-items: flex-start; flex-direction: column; gap: 12px; }
+      .logo { flex-wrap: wrap; }
+      .card { padding: 14px; }
+    }
+    @media (prefers-reduced-motion: reduce) { *, *::before { animation: none !important; transition: none !important; } }
+
+    /* Alert / Notification */
+    #toast { position: fixed; bottom: 20px; right: 20px; background: #1e293b; border: 1px solid var(--primary); padding: 12px 20px; border-radius: 8px; color: #fff; box-shadow: 0 10px 25px rgba(0,0,0,0.5); display: none; z-index: 9999; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <!-- Header -->
+    <header>
+      <div class="logo">
+        <h1>微信群消息监控与数据中继</h1>
+        <span>JINX Relay v1.0</span>
+      </div>
+      <div class="toolbar">
+        <span id="upstream-status-badge" class="badge badge-secondary">上游: 离线</span>
+        <button class="btn btn-secondary btn-sm" onclick="refreshAll()">刷新状态</button>
+      </div>
+    </header>
+
+    <!-- Stats Bar -->
+    <dl class="stats-bar" aria-label="运行统计" tabindex="0">
+      <div class="stat-item" title="本次服务启动以来接收的消息"><dt>已接收</dt><dd id="stat-total">0</dd></div>
+      <div class="stat-item" title="群已开放且消息通过过滤，不代表客户端已接收"><dt>可对外提供</dt><dd id="stat-forwarded">0</dd></div>
+      <div class="stat-item" title="未开放群或未通过过滤的消息"><dt>不对外提供</dt><dd id="stat-blocked">0</dd></div>
+      <div class="stat-item" id="stat-clients-detail" title="SSE: 0 | WS: 0"><dt>订阅连接</dt><dd id="stat-clients">0</dd></div>
+      <div class="stat-item"><dt>开放群</dt><dd id="stat-exposed-groups">0</dd></div>
+      <div class="stat-item"><dt>已发现群</dt><dd id="stat-monitored-info">0</dd></div>
+    </dl>
+
+    <!-- Navigation Tabs -->
+    <div class="tabs">
+      <button class="tab-btn active" data-tab="stream" onclick="switchTab('stream')">📡 实时消息大厅</button>
+      <button class="tab-btn" data-tab="groups" onclick="switchTab('groups')">👥 群组监控与开放设置</button>
+      <button class="tab-btn" data-tab="filters" onclick="switchTab('filters')">🛡️ 消息过滤规则</button>
+      <button class="tab-btn" data-tab="integration" onclick="switchTab('integration')">🔌 数据对接与测试</button>
+    </div>
+
+    <!-- TAB 1: 实时消息大厅 -->
+    <div id="tab-stream" class="panel active">
+      <div class="card">
+        <div class="card-header">
+          <div>
+            <div class="card-title">实时消息监控流 (最新 200 条)</div>
+            <div class="form-help">展示已接收的全部类型消息，包含不对外提供的消息；图片、语音等显示类型摘要，可展开原始内容。</div>
+          </div>
+          <div style="display: flex; gap: 10px;">
+            <select aria-label="实时消息显示范围" id="filter-action-select" style="width: 150px;" onchange="renderRecentMessages()">
+              <option value="all">全部消息（含拦截）</option>
+              <option value="forward">仅展示可对外提供</option>
+              <option value="blocked_unexposed">仅展示未开放群</option>
+              <option value="blocked">仅展示被拦截消息</option>
+            </select>
+            <button class="btn btn-secondary btn-sm" onclick="clearLiveMessages()">清屏</button>
+          </div>
+        </div>
+        <div id="messages-stream" class="msg-stream">
+          <div style="color: var(--text-muted); text-align: center; padding: 40px;">等待接收微信群消息...</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- TAB 2: 群组监控与暴露名单 -->
+    <div id="tab-groups" class="panel">
+      <div class="grid-2">
+        <!-- 群组列表与暴露开关 -->
+        <div class="card" style="grid-column: span 2;">
+          <div class="card-header">
+            <div>
+              <div class="card-title">已发现微信群与数据开放设置</div>
+              <div class="form-help">开启「对外提供数据」的群聊，其通过过滤的消息可由外部客户端订阅。群列表随接收消息更新，每 15 秒刷新。</div>
+            </div>
+            <div style="display: flex; gap: 12px; align-items: center;">
+              <label class="switch-label">
+                <span class="switch">
+                  <input type="checkbox" id="cfg-monitor-all" onchange="saveMonitorAllSetting(this.checked)" />
+                  <span class="slider"></span>
+                </span>
+                <span>监控全部群聊</span>
+              </label>
+            </div>
+          </div>
+
+          <!-- 手动添加群 -->
+          <div class="toolbar" style="margin-bottom: 16px;">
+            <input aria-label="手动添加群 ID" type="text" id="new-group-id" placeholder="群聊 ID (例如 demo-group@chatroom)" style="flex: 2;" />
+            <input aria-label="手动添加群备注" type="text" id="new-group-name" placeholder="群备注名称 (例如 技术讨论群)" style="flex: 2;" />
+            <button class="btn" onclick="addManualGroup()">+ 开放此群数据</button>
+          </div>
+
+          <label class="form-label" for="group-search">搜索群名称或 ID</label>
+          <input type="text" id="group-search" placeholder="输入群名、备注或 ID" oninput="renderGroupsTable()" />
+          <div id="group-count" class="form-help" style="margin: 8px 0;"></div>
+          <!-- 群表格 -->
+          <div style="overflow-x: auto;">
+            <table>
+              <thead>
+                <tr>
+                  <th>群 ID</th>
+                  <th>群名称 / 别名</th>
+                  <th>本次接收</th>
+                  <th>可对外提供</th>
+                  <th>最后接收时间</th>
+                  <th>监控</th>
+                  <th>对外提供数据</th>
+                </tr>
+              </thead>
+              <tbody id="groups-table-body">
+                <tr><td colspan="7" style="text-align: center; color: var(--text-muted);">暂无群组数据</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- TAB 3: 消息过滤规则 -->
+    <div id="tab-filters" class="panel">
+      <div class="grid-2">
+        <!-- 关键字黑名单 -->
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">关键字阻断列表 (Keyword Blocklist)</div>
+          </div>
+          <div class="form-help" style="margin-bottom: 10px;">包含以下任何关键字的消息不对外提供。例如系统拍一拍、撤回、红包等。</div>
+          <div id="keyword-tags" class="tags-container"></div>
+          <div style="display: flex; gap: 8px;">
+            <input type="text" id="input-new-keyword" placeholder="输入要阻断的关键字后按回车或点击添加..." onkeydown="if(event.key==='Enter')addKeyword()" />
+            <button class="btn" onclick="addKeyword()">添加</button>
+          </div>
+        </div>
+
+        <!-- 正则阻断与发送者黑名单 -->
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">发送者黑名单 (Sender Blocklist)</div>
+          </div>
+          <div class="form-help" style="margin-bottom: 10px;">屏蔽特定用户 wxid 或昵称发出的消息。</div>
+          <div id="sender-tags" class="tags-container"></div>
+          <div style="display: flex; gap: 8px;">
+            <input type="text" id="input-new-sender" placeholder="输入 wxid 或昵称..." onkeydown="if(event.key==='Enter')addSender()" />
+            <button class="btn" onclick="addSender()">添加</button>
+          </div>
+
+          <div style="margin-top: 20px;">
+            <div class="form-label">正则匹配阻断规则 (每行一条)</div>
+            <textarea id="regex-blocklist" rows="3" placeholder="例如: ^\[广告\].*"></textarea>
+          </div>
+        </div>
+
+        <!-- 消息类型与基础设置 -->
+        <div class="card" style="grid-column: span 2;">
+          <div class="card-header">
+            <div class="card-title">消息类型与处理偏好</div>
+            <button class="btn" onclick="saveFilterSettings()">💾 保存所有过滤配置</button>
+          </div>
+          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px;">
+            <div>
+              <div class="form-label">允许对外提供的消息类型</div>
+              <div class="form-help">仅控制对外提供的数据，不影响后台消息展示。全部不选表示不限类型。</div>
+              <div id="allowed-message-types" style="display: flex; flex-direction: column; gap: 8px; margin-top: 6px;">
+                <label><input type="checkbox" id="type-text" value="1" checked /> 文本消息 (Type: 1)</label>
+                <label><input type="checkbox" id="type-quote" value="81" checked /> 引用回复 (Type: 81)</label>
+                <label><input type="checkbox" id="type-image" value="3" /> 图片消息 (Type: 3)</label>
+                <label><input type="checkbox" id="type-app" value="49" /> 应用/卡片/链接/文件 (Type: 49)</label>
+                <label><input type="checkbox" id="type-emoji" value="47" /> 表情包 (Type: 47)</label>
+                <label><input type="checkbox" id="type-voice" value="34" /> 语音消息 (Type: 34)</label>
+                <label><input type="checkbox" id="type-video" value="43" /> 视频消息 (Type: 43)</label>
+                <label><input type="checkbox" id="type-location" value="48" /> 位置消息 (Type: 48)</label>
+                <label><input type="checkbox" id="type-system" value="10000" /> 系统通知/撤回 (Type: 10000)</label>
+              </div>
+            </div>
+            <div>
+              <div class="form-label">消息内容清洗与安全</div>
+              <div style="display: flex; flex-direction: column; gap: 12px; margin-top: 8px;">
+                <label class="switch-label">
+                  <span class="switch">
+                    <input type="checkbox" id="cfg-clean-content" checked />
+                    <span class="slider"></span>
+                  </span>
+                  <span>自动清除消息前缀 @xxx 提及符号</span>
+                </label>
+                <label class="switch-label">
+                  <span class="switch">
+                    <input type="checkbox" id="cfg-ignore-echo" />
+                    <span class="slider"></span>
+                  </span>
+                  <span>忽略自己发送的群消息 (Ignore Echo)</span>
+                </label>
+                <label class="switch-label">
+                  <span class="switch">
+                    <input type="checkbox" id="cfg-drop-unexposed" />
+                    <span class="slider"></span>
+                  </span>
+                  <span>不暂存未开放群的消息</span>
+                </label>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- TAB 4: AI 对接与模拟测试 -->
+    <div id="tab-integration" class="panel">
+      <div class="grid-2">
+        <!-- 接口说明与示例 -->
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">外部数据订阅接口</div>
+          </div>
+          <div class="form-group">
+            <div class="form-label">1. SSE 实时事件流 (Server-Sent Events)</div>
+            <pre><code id="sse-url-box">GET http://127.0.0.1:8080/api/v1/stream</code></pre>
+            <div class="form-help">支持参数 ?groups=demo-group@chatroom,test-group@chatroom 精准指定</div>
+          </div>
+          <div class="form-group">
+            <div class="form-label">2. WebSocket 实时双向流</div>
+            <pre><code id="ws-url-box">ws://127.0.0.1:8080/api/v1/ws</code></pre>
+          </div>
+          <div class="form-group">
+            <div class="form-label">3. 上游消息 Webhook (接收外部消息推入)</div>
+            <pre><code id="webhook-url-box">POST http://127.0.0.1:8080/api/webhook</code></pre>
+          </div>
+          <div class="form-group">
+            <div class="form-label">Python 数据订阅示例</div>
+            <pre><code>import sseclient, urllib.request, json
+
+url = 'http://127.0.0.1:8080/api/v1/stream'
+req = urllib.request.Request(url, headers={'Accept': 'text/event-stream'})
+client = sseclient.SSEClient(urllib.request.urlopen(req))
+
+for event in client.events():
+    msg = json.loads(event.data)
+    print(f"[{msg['group_name']}] {msg['sender_name']}: {msg['content']}")
+    # 在此调用 LLM 分析模型...</code></pre>
+          </div>
+        </div>
+
+        <!-- 在线模拟发消息测试 -->
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">🧪 在线模拟群消息测试</div>
+          </div>
+          <div class="form-help" style="margin-bottom: 12px;">直接向网关发送一条模拟微信群消息，快速测试开放规则与过滤逻辑是否生效。</div>
+          <div class="form-group">
+            <label class="form-label">群聊选择 / 输入群 ID</label>
+            <input type="text" id="mock-group-id" value="demo-group@chatroom" placeholder="例如: test-group@chatroom" />
+          </div>
+          <div class="form-group">
+            <label class="form-label">群名称</label>
+            <input type="text" id="mock-group-name" value="AI研发测试群" placeholder="例如: 技术架构群" />
+          </div>
+          <div class="form-group">
+            <label class="form-label">发送者 wxid & 昵称</label>
+            <div style="display: flex; gap: 8px;">
+              <input type="text" id="mock-sender-id" value="demo-member" placeholder="wxid" style="flex: 1;" />
+              <input type="text" id="mock-sender-name" value="测试用户A" placeholder="昵称" style="flex: 1;" />
+            </div>
+          </div>
+          <div class="form-group">
+            <label class="form-label">消息类型</label>
+            <select id="mock-type">
+              <option value="1">1 - 文本消息</option>
+              <option value="81">81 - 引用消息</option>
+              <option value="3">3 - 图片消息</option>
+              <option value="34">34 - 语音消息</option>
+              <option value="43">43 - 视频消息</option>
+              <option value="47">47 - 表情包</option>
+              <option value="48">48 - 位置消息</option>
+              <option value="49">49 - 卡片/链接/文件</option>
+              <option value="10000">10000 - 系统消息</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">消息内容</label>
+            <textarea id="mock-content" rows="3" placeholder="输入测试消息内容...">@助手 请分析一下今天群里讨论的架构设计方案</textarea>
+          </div>
+          <button class="btn" style="width: 100%;" onclick="sendMockMessage()">🚀 立即注入模拟消息并测试</button>
+
+          <div id="mock-result" style="margin-top: 16px; display: none; padding: 12px; border-radius: 6px; border: 1px solid var(--card-border);"></div>
+        </div>
+
+        <!-- 上游 WebSocket 来源配置 -->
+        <div class="card" style="grid-column: span 2;">
+          <div class="card-header">
+            <div class="card-title">上游 WebSocket 自动连接配置</div>
+            <button class="btn" onclick="saveUpstreamConfig()">保存上游配置</button>
+          </div>
+          <div class="grid-2">
+            <div class="form-group">
+              <label class="switch-label" style="margin-bottom: 12px;">
+                <span class="switch">
+                  <input type="checkbox" id="upstream-enabled" />
+                  <span class="slider"></span>
+                </span>
+                <span>启用上游 WebSocket 自动拉取</span>
+              </label>
+              <div class="form-label">上游 WS 地址 (例如 WeFlow 或 WeChatBridge)</div>
+              <input type="text" id="upstream-ws-url" value="ws://127.0.0.1:5032" placeholder="ws://127.0.0.1:5032" />
+            </div>
+            <div class="form-group">
+              <div class="form-label">断线重连间隔 (秒)</div>
+              <input type="number" id="upstream-reconnect-sec" value="3" min="1" max="60" />
+              <div class="form-help">服务启动后将在后台持续维护长连接，有新消息时自动推入过滤管道。</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Toast Alert -->
+    <div id="toast" role="status" aria-live="polite"></div>
+  </div>
+
+  <script>
+    let currentConfig = null;
+    let recentMessages = [];
+    let discoveredGroups = [];
+    let sseEventSource = null;
+
+    // Toast
+    function showToast(msg) {
+      const t = document.getElementById('toast');
+      t.innerText = msg;
+      t.style.display = 'block';
+      setTimeout(() => { t.style.display = 'none'; }, 2800);
+    }
+
+    // Tabs
+    function switchTab(name) {
+      document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+      document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+      document.querySelector(`[data-tab="${name}"]`).classList.add('active');
+      document.getElementById('tab-' + name).classList.add('active');
+      if (name === 'groups') fetchGroups();
+    }
+
+    // Fetch Stats & Config
+    async function refreshAll() {
+      await fetchConfig();
+      await Promise.all([fetchStats(), fetchGroups(), fetchRecentMessages()]);
+    }
+
+    async function fetchStats() {
+      try {
+        const res = await fetch('/api/v1/stats');
+        const data = await res.json();
+        document.getElementById('stat-total').innerText = data.total_received.toLocaleString();
+        document.getElementById('stat-forwarded').innerText = data.total_forwarded.toLocaleString();
+        document.getElementById('stat-blocked').innerText = data.total_blocked.toLocaleString();
+        document.getElementById('stat-clients').innerText = data.active_sse_clients + data.active_ws_clients;
+        document.getElementById('stat-clients-detail').title = `SSE: ${data.active_sse_clients} | WS: ${data.active_ws_clients}`;
+        document.getElementById('stat-exposed-groups').innerText = data.exposed_group_num;
+        document.getElementById('stat-monitored-info').innerText = data.monitored_group_num;
+
+        const upBadge = document.getElementById('upstream-status-badge');
+        if (data.upstream_connected) {
+          upBadge.className = 'badge badge-forward';
+          upBadge.innerText = '上游: 已连接';
+        } else {
+          upBadge.className = 'badge badge-secondary';
+          upBadge.innerText = data.upstream_url ? '上游: 重连中' : '上游: 未启用';
+        }
+      } catch (err) {
+        console.error('Failed to fetch stats:', err);
+      }
+    }
+
+    async function fetchConfig() {
+      try {
+        currentConfig = await apiJSON('/api/v1/config');
+        renderConfig();
+      } catch (err) {
+        showToast('无法加载配置：' + err.message);
+      }
+    }
+
+    function renderConfig() {
+      if (!currentConfig) return;
+      document.getElementById('cfg-monitor-all').checked = currentConfig.group_control.monitor_all;
+      document.getElementById('cfg-clean-content').checked = currentConfig.filters.clean_content;
+      document.getElementById('cfg-ignore-echo').checked = currentConfig.filters.ignore_echo;
+      document.getElementById('cfg-drop-unexposed').checked = currentConfig.group_control.drop_unexposed_completely;
+
+      // Upstream
+      document.getElementById('upstream-enabled').checked = currentConfig.upstream.enabled;
+      document.getElementById('upstream-ws-url').value = currentConfig.upstream.ws_url || 'ws://127.0.0.1:5032';
+      document.getElementById('upstream-reconnect-sec').value = currentConfig.upstream.reconnect_interval_sec || 3;
+
+      renderGroupsTable();
+
+      // Keywords
+      renderKeywordTags();
+      // Senders
+      renderSenderTags();
+      // Regex
+      document.getElementById('regex-blocklist').value = (currentConfig.filters.regex_blocklist || []).join('\n');
+
+      // Types
+      const types = currentConfig.filters.allowed_types || [];
+      document.querySelectorAll('#allowed-message-types input').forEach(input => {
+        input.checked = types.includes(Number(input.value));
+      });
+    }
+
+    // Render Tags
+    function renderKeywordTags() {
+      const c = document.getElementById('keyword-tags');
+      c.innerHTML = '';
+      const list = currentConfig.filters.keyword_blocklist || [];
+      list.forEach((kw, idx) => {
+        const span = document.createElement('span');
+        span.className = 'tag-item';
+        span.innerHTML = `<span>${escapeHtml(kw)}</span><span class="tag-remove" onclick="removeKeyword(${idx})">&times;</span>`;
+        c.appendChild(span);
+      });
+    }
+
+    function addKeyword() {
+      const input = document.getElementById('input-new-keyword');
+      const val = input.value.trim();
+      if (!val) return;
+      if (!currentConfig.filters.keyword_blocklist) currentConfig.filters.keyword_blocklist = [];
+      if (!currentConfig.filters.keyword_blocklist.includes(val)) {
+        currentConfig.filters.keyword_blocklist.push(val);
+        renderKeywordTags();
+      }
+      input.value = '';
+    }
+
+    function removeKeyword(idx) {
+      currentConfig.filters.keyword_blocklist.splice(idx, 1);
+      renderKeywordTags();
+    }
+
+    function renderSenderTags() {
+      const c = document.getElementById('sender-tags');
+      c.innerHTML = '';
+      const list = currentConfig.filters.sender_blocklist || [];
+      list.forEach((s, idx) => {
+        const span = document.createElement('span');
+        span.className = 'tag-item';
+        span.innerHTML = `<span>${escapeHtml(s)}</span><span class="tag-remove" onclick="removeSender(${idx})">&times;</span>`;
+        c.appendChild(span);
+      });
+    }
+
+    function addSender() {
+      const input = document.getElementById('input-new-sender');
+      const val = input.value.trim();
+      if (!val) return;
+      if (!currentConfig.filters.sender_blocklist) currentConfig.filters.sender_blocklist = [];
+      if (!currentConfig.filters.sender_blocklist.includes(val)) {
+        currentConfig.filters.sender_blocklist.push(val);
+        renderSenderTags();
+      }
+      input.value = '';
+    }
+
+    function removeSender(idx) {
+      currentConfig.filters.sender_blocklist.splice(idx, 1);
+      renderSenderTags();
+    }
+
+    // Save Filters
+    async function saveFilterSettings() {
+      if (!currentConfig) return;
+      // Gather allowed types
+      const typeInputs = [...document.querySelectorAll('#allowed-message-types input')];
+      const knownTypes = typeInputs.map(input => Number(input.value));
+      const types = typeInputs.filter(input => input.checked).map(input => Number(input.value));
+      const customTypes = (currentConfig.filters.allowed_types || []).filter(type => !knownTypes.includes(type));
+      currentConfig.filters.allowed_types = [...types, ...customTypes];
+
+      // Regex
+      const regexLines = document.getElementById('regex-blocklist').value.split('\n').map(s => s.trim()).filter(Boolean);
+      currentConfig.filters.regex_blocklist = regexLines;
+
+      currentConfig.filters.clean_content = document.getElementById('cfg-clean-content').checked;
+      currentConfig.filters.ignore_echo = document.getElementById('cfg-ignore-echo').checked;
+      currentConfig.group_control.drop_unexposed_completely = document.getElementById('cfg-drop-unexposed').checked;
+
+      try { await postConfig(currentConfig); showToast('过滤规则已保存并生效'); } catch (err) { showToast(err.message); }
+    }
+
+    async function saveUpstreamConfig() {
+      if (!currentConfig) return;
+      currentConfig.upstream.enabled = document.getElementById('upstream-enabled').checked;
+      currentConfig.upstream.ws_url = document.getElementById('upstream-ws-url').value.trim();
+      currentConfig.upstream.reconnect_interval_sec = parseInt(document.getElementById('upstream-reconnect-sec').value) || 3;
+      try { await postConfig(currentConfig); showToast('上游配置已保存；已连接的上游需重启服务后切换'); } catch (err) { showToast(err.message); }
+      fetchStats();
+    }
+
+    async function saveMonitorAllSetting(val) {
+      if (!currentConfig) return;
+      currentConfig.group_control.monitor_all = val;
+      try {
+        await postConfig(currentConfig);
+        await fetchGroups();
+        showToast(val ? '已开启监控全部群聊' : '已切换为仅监控指定群');
+      } catch (err) { showToast(err.message); }
+    }
+
+    async function apiJSON(path, options) {
+      const res = await fetch(path, options);
+      if (!res.ok) throw new Error((await res.text()).trim() || `请求失败 (${res.status})`);
+      return res.json();
+    }
+
+    async function postConfig(cfg) {
+      try {
+        currentConfig = await apiJSON('/api/v1/config', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(cfg)
+        });
+        renderConfig();
+      } catch (err) {
+        await fetchConfig();
+        throw new Error('保存失败：' + err.message);
+      }
+    }
+
+    // Groups
+    async function fetchGroups() {
+      try {
+        discoveredGroups = await apiJSON('/api/v1/groups');
+        renderGroupsTable();
+      } catch (err) {
+        console.error('Failed to fetch groups:', err);
+      }
+    }
+
+    function renderGroupsTable() {
+      const tbody = document.getElementById('groups-table-body');
+      const keyword = document.getElementById('group-search').value.trim().toLowerCase();
+      const matches = discoveredGroups.filter(g => `${g.group_id} ${g.group_name}`.toLowerCase().includes(keyword));
+      document.getElementById('group-count').textContent = `共 ${discoveredGroups.length} 个群，匹配 ${matches.length} 个${matches.length > 100 ? '，显示前 100 个，请搜索定位' : ''}。计数为本次启动后的接收量。`;
+      tbody.replaceChildren();
+      if (!matches.length) {
+        tbody.innerHTML = '<tr><td colspan="7" class="notice">暂无匹配群聊，请接收消息或调整搜索条件。</td></tr>';
+        return;
+      }
+      matches.slice(0, 100).forEach(g => {
+        const tr = document.createElement('tr');
+        const lastActive = g.last_active_at && !g.last_active_at.startsWith('0001') ? new Date(g.last_active_at).toLocaleString() : '—';
+        tr.innerHTML = `
+          <td><code style="color:#60a5fa;">${escapeHtml(g.group_id)}</code></td>
+          <td><b>${escapeHtml(g.group_name || g.group_id)}</b></td>
+          <td>${g.message_count || 0}</td><td>${g.forward_count || 0}</td>
+          <td style="color:var(--text-muted); font-size:12px;">${escapeHtml(lastActive)}</td>
+          <td><input type="checkbox" class="monitor-toggle" aria-label="监控此群" ${g.is_monitored ? 'checked' : ''} ${currentConfig?.group_control.monitor_all ? 'disabled' : ''} /></td>
+          <td><input type="checkbox" class="expose-toggle" aria-label="对外提供此群数据" ${g.is_exposed ? 'checked' : ''} /></td>`;
+        tr.querySelector('.monitor-toggle').addEventListener('change', e => toggleGroup('monitor', g.group_id, e.target.checked));
+        tr.querySelector('.expose-toggle').addEventListener('change', e => toggleGroup('expose', g.group_id, e.target.checked));
+        tbody.appendChild(tr);
+      });
+    }
+
+    async function toggleGroup(kind, groupId, enabled) {
+      try {
+        await apiJSON('/api/v1/groups/' + kind, {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ group_id: groupId, [kind === 'monitor' ? 'monitored' : 'exposed']: enabled })
+        });
+        await fetchConfig();
+        showToast('群设置已保存');
+      } catch (err) { showToast('保存失败：' + err.message); }
+      await Promise.all([fetchGroups(), fetchStats()]);
+    }
+
+    async function addManualGroup() {
+      const idInput = document.getElementById('new-group-id');
+      const nameInput = document.getElementById('new-group-name');
+      const gId = idInput.value.trim();
+      const gName = nameInput.value.trim() || gId;
+      if (!gId.endsWith('@chatroom')) {
+        showToast('请输入以 @chatroom 结尾的群 ID');
+        return;
+      }
+      if (!currentConfig) await fetchConfig();
+      if (!currentConfig.group_control.exposed_groups) currentConfig.group_control.exposed_groups = [];
+      if (!currentConfig.group_control.exposed_groups.includes(gId)) {
+        currentConfig.group_control.exposed_groups.push(gId);
+      }
+      if (!currentConfig.group_control.group_aliases) currentConfig.group_control.group_aliases = {};
+      currentConfig.group_control.group_aliases[gId] = gName;
+      try { await postConfig(currentConfig); } catch (err) { showToast(err.message); return; }
+      idInput.value = '';
+      nameInput.value = '';
+      showToast(`已添加群 ${gName} 并开放对外数据订阅`);
+      await fetchGroups();
+      await fetchStats();
+    }
+
+    // Recent Messages
+    async function fetchRecentMessages() {
+      try {
+        const res = await fetch('/api/v1/messages/recent');
+        mergeRecentMessages(await res.json());
+      } catch (err) {
+        console.error('Failed to fetch recent messages:', err);
+      }
+    }
+
+    function mergeRecentMessages(messages) {
+      const byId = new Map(recentMessages.map(message => [message.id, message]));
+      messages.forEach(message => byId.set(message.id, message));
+      recentMessages = [...byId.values()].sort((a, b) => a.timestamp - b.timestamp).slice(-200);
+      renderRecentMessages();
+    }
+
+    function renderRecentMessages() {
+      const container = document.getElementById('messages-stream');
+      const filter = document.getElementById('filter-action-select').value;
+      let list = recentMessages.slice().reverse(); // new on top
+
+      if (filter === 'forward') {
+        list = list.filter(m => m.action === 'forward');
+      } else if (filter === 'blocked_unexposed') {
+        list = list.filter(m => m.action === 'blocked_unexposed');
+      } else if (filter === 'blocked') {
+        list = list.filter(m => m.action !== 'forward' && m.action !== 'blocked_unexposed');
+      }
+
+      if (list.length === 0) {
+        container.innerHTML = '<div style="color: var(--text-muted); text-align: center; padding: 40px;">暂无匹配的消息记录</div>';
+        return;
+      }
+
+      container.innerHTML = '';
+      list.forEach(m => {
+        container.appendChild(createMessageCard(m));
+      });
+    }
+
+    function createMessageCard(m) {
+      const card = document.createElement('div');
+      card.className = 'msg-card';
+
+      let badgeHtml = '';
+      if (m.action === 'forward') {
+        badgeHtml = '<span class="badge badge-forward" title="群已开放且消息通过过滤，不代表客户端已接收">可对外提供</span>';
+      } else if (m.action === 'blocked_unexposed') {
+        badgeHtml = '<span class="badge badge-unexposed">未开放群</span>';
+      } else if (!m.action) {
+        badgeHtml = '<span class="badge badge-secondary">消息记录</span>';
+      } else {
+        badgeHtml = `<span class="badge badge-blocked">✕ 拦截: ${escapeHtml(m.action)}</span>`;
+      }
+
+      const gName = m.group_name || m.group_id || '未知群聊';
+      const sender = m.sender_name || m.sender_id || '匿名';
+
+      card.innerHTML = `
+        <div class="msg-header">
+          <div>
+            <b style="color:#60a5fa;">[${escapeHtml(gName)}]</b>
+            <span style="color:#e2e8f0;">${escapeHtml(sender)}</span>
+            <span style="color:var(--text-muted); font-size:11px;">(${escapeHtml(m.type_name || '类型:' + m.type)})</span>
+          </div>
+          <div>${badgeHtml}</div>
+        </div>
+        <div class="msg-content">${escapeHtml(m.content || '[' + (m.type_name || '类型:' + m.type) + ']')}</div>
+        ${m.raw_content && m.raw_content !== m.content ? `<details class="msg-raw"><summary>查看原始内容</summary><pre>${escapeHtml(m.raw_content)}</pre></details>` : ''}
+        <div class="msg-footer">
+          <span style="color:var(--text-muted);">${escapeHtml(m.created_at || '')}</span>
+          ${m.filter_reason ? `<span style="color:#facc15;">· ${escapeHtml(m.filter_reason)}</span>` : ''}
+        </div>
+      `;
+      const detail = m.details;
+      if (detail) {
+        const area = document.createElement('div');
+        area.className = 'msg-detail';
+        if (detail.description) { const text = document.createElement('span'); text.textContent = detail.description; area.appendChild(text); }
+        if (detail.url) {
+          try {
+            const url = new URL(detail.url);
+            if (['http:', 'https:'].includes(url.protocol)) {
+              const link = document.createElement('a'); link.href = url.href; link.textContent = '打开链接'; link.target = '_blank'; link.rel = 'noopener noreferrer'; area.appendChild(link);
+            }
+          } catch (_) {}
+        }
+        if (detail.kind === 'file') {
+          const status = document.createElement('span');
+          status.textContent = detail.file_size ? formatSize(detail.file_size) : '文件消息';
+          area.appendChild(status);
+        }
+        if (m.source) { const source = document.createElement('span'); source.textContent = m.source; area.appendChild(source); }
+        card.querySelector('.msg-content').after(area);
+      }
+      return card;
+    }
+
+    function formatSize(bytes) {
+      if (bytes < 1024) return bytes + ' B';
+      if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+      return (bytes / 1024 / 1024).toFixed(1) + ' MB';
+    }
+
+    function clearLiveMessages() {
+      recentMessages = [];
+      renderRecentMessages();
+    }
+
+    // Mock Send
+    async function sendMockMessage() {
+      const payload = {
+        group_id: document.getElementById('mock-group-id').value.trim(),
+        group_name: document.getElementById('mock-group-name').value.trim(),
+        sender_id: document.getElementById('mock-sender-id').value.trim(),
+        sender_name: document.getElementById('mock-sender-name').value.trim(),
+        type: parseInt(document.getElementById('mock-type').value),
+        content: document.getElementById('mock-content').value.trim()
+      };
+
+      try {
+        const res = await fetch('/api/v1/mock', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        const result = await res.json();
+        const box = document.getElementById('mock-result');
+        box.style.display = 'block';
+
+        if (result.allowed) {
+          box.style.background = 'rgba(16, 185, 129, 0.1)';
+          box.style.borderColor = 'var(--success)';
+          box.innerHTML = `<b style="color:var(--success);">✓ 可对外提供：已通过群开放与消息过滤规则</b><div style="margin-top:6px; font-size:12px; color:var(--text-muted);">${escapeHtml(result.reason)}</div>`;
+        } else {
+          box.style.background = 'rgba(239, 68, 68, 0.1)';
+          box.style.borderColor = 'var(--danger)';
+          box.innerHTML = `<b style="color:var(--danger);">✕ 判定阻断 (${escapeHtml(result.action)})</b><div style="margin-top:6px; font-size:12px; color:#fca5a5;">原因: ${escapeHtml(result.reason)}</div>`;
+        }
+
+        await fetchStats();
+        await fetchGroups();
+        await fetchRecentMessages();
+      } catch (err) {
+        alert('发送失败: ' + err);
+      }
+    }
+
+    // Live SSE subscriber inside UI for instant real-time feed
+    function startLiveFeed() {
+      if (sseEventSource) {
+        sseEventSource.close();
+      }
+      sseEventSource = new EventSource('/api/v1/monitor/stream');
+      sseEventSource.addEventListener('snapshot', function(e) {
+        mergeRecentMessages(JSON.parse(e.data));
+      });
+      sseEventSource.onmessage = function(e) {
+        try {
+          const msg = JSON.parse(e.data);
+          mergeRecentMessages([msg]);
+          fetchStats();
+        } catch (err) {}
+      };
+      sseEventSource.onerror = function() {
+        // will auto reconnect
+      };
+    }
+
+    function escapeHtml(str) {
+      if (!str) return '';
+      return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+    }
+
+    // Init
+    window.addEventListener('DOMContentLoaded', async () => {
+      // Update code blocks with host
+      const host = window.location.host || '127.0.0.1:8080';
+      document.getElementById('sse-url-box').innerText = `GET http://${host}/api/v1/stream`;
+      document.getElementById('ws-url-box').innerText = `ws://${host}/api/v1/ws`;
+      document.getElementById('webhook-url-box').innerText = `POST http://${host}/api/webhook`;
+
+      await refreshAll();
+      startLiveFeed();
+      setInterval(fetchStats, 5000);
+      setInterval(fetchGroups, 15000);
+    });
+  </script>
+</body>
+</html>

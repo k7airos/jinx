@@ -1,0 +1,50 @@
+Upstream source notice excerpts, reproduced without changing the original lines.
+This index is generated for JINX distribution; it is not an upstream NOTICE file.
+The applicable full licenses are listed in THIRD_PARTY_NOTICES.md and third_party/SOURCES.json.
+
+${GOMODCACHE}/github.com/egoist/mygo@v0.10.0/internal/shader/expr.go
+// Copyright 2020 The Ebiten Authors
+
+${GOMODCACHE}/github.com/egoist/mygo@v0.10.0/internal/shader/shader.go
+// Copyright 2020 The Ebiten Authors
+
+${GOMODCACHE}/github.com/egoist/mygo@v0.10.0/internal/shader/stmt.go
+// Copyright 2020 The Ebiten Authors
+
+${GOMODCACHE}/github.com/egoist/mygo@v0.10.0/internal/shader/type.go
+// Copyright 2020 The Ebiten Authors
+
+${GOMODCACHE}/github.com/egoist/mygo@v0.10.0/internal/shaderir/check.go
+// Copyright 2023 The Ebitengine Authors
+
+${GOMODCACHE}/github.com/egoist/mygo@v0.10.0/internal/shaderir/glsl/glsl.go
+// Copyright 2020 The Ebiten Authors
+
+${GOMODCACHE}/github.com/egoist/mygo@v0.10.0/internal/shaderir/glsl/type.go
+// Copyright 2020 The Ebiten Authors
+
+${GOMODCACHE}/github.com/egoist/mygo@v0.10.0/internal/shaderir/hlsl/hlsl.go
+// Copyright 2022 The Ebiten Authors
+
+${GOMODCACHE}/github.com/egoist/mygo@v0.10.0/internal/shaderir/hlsl/type.go
+// Copyright 2022 The Ebiten Authors
+
+${GOMODCACHE}/github.com/egoist/mygo@v0.10.0/internal/shaderir/hlsl/uniform.go
+// Copyright 2022 The Ebiten Authors
+
+${GOMODCACHE}/github.com/egoist/mygo@v0.10.0/internal/shaderir/msl/msl.go
+// Copyright 2020 The Ebiten Authors
+
+${GOMODCACHE}/github.com/egoist/mygo@v0.10.0/internal/shaderir/msl/type.go
+// Copyright 2020 The Ebiten Authors
+
+${GOMODCACHE}/github.com/egoist/mygo@v0.10.0/internal/shaderir/program.go
+// Copyright 2020 The Ebiten Authors
+
+${GOMODCACHE}/github.com/egoist/mygo@v0.10.0/internal/shaderir/type.go
+// Copyright 2020 The Ebiten Authors
+
+${GOMODCACHE}/github.com/egoist/mygo@v0.10.0/ui/combobox.go
+// searchIcon is a magnifying glass, MingCute's search icon (Apache License
+// 2.0, https://github.com/Richard9394/MingCute/blob/main/LICENSE).
+var searchIcon = parseIcon([]byte(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-width="2" d="M14.5 14.5L20 20m-4-10a6 6 0 1 1-12 0a6 6 0 0 1 12 0Z"/></svg>`))

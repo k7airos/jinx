@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    padding: 16px;
+    font-family: ui-monospace, SFMono-Regular, "JetBrains Mono", Menlo, Consolas, monospace;
+    color: var(--foreground, #e2e8f0);
+    background: transparent;
+  }
+  .arch-container {
+    max-width: 660px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .card {
+    background: var(--card, rgba(15, 23, 42, 0.75));
+    border: 1px solid var(--border, rgba(255, 255, 255, 0.12));
+    border-radius: 8px;
+    padding: 12px 16px;
+    display: grid;
+    grid-template-columns: 86px 1fr auto;
+    align-items: center;
+    gap: 14px;
+    backdrop-filter: blur(10px);
+  }
+  .layer-badge {
+    font-size: 11px;
+    font-weight: 700;
+    text-align: center;
+    padding: 5px 6px;
+    border-radius: 5px;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+  }
+  .b-green  { background: rgba(34, 197, 94, 0.15); color: #4ade80; border: 1px solid rgba(34, 197, 94, 0.35); }
+  .b-blue   { background: rgba(59, 130, 246, 0.15); color: #60a5fa; border: 1px solid rgba(59, 130, 246, 0.35); }
+  .b-purple { background: rgba(168, 85, 247, 0.15); color: #c084fc; border: 1px solid rgba(168, 85, 247, 0.35); }
+  .b-amber  { background: rgba(245, 158, 11, 0.15); color: #fbbf24; border: 1px solid rgba(245, 158, 11, 0.35); }
+  .b-cyan   { background: rgba(6, 182, 212, 0.15); color: #22d3ee; border: 1px solid rgba(6, 182, 212, 0.35); }
+
+  .content { display: flex; flex-direction: column; gap: 4px; }
+  .title-row { display: flex; align-items: baseline; gap: 8px; }
+  .title { font-size: 13.5px; font-weight: 600; color: #f8fafc; }
+  .desc { font-size: 12px; color: var(--muted-foreground, #94a3b8); line-height: 1.45; }
+
+  .tech-meta {
+    text-align: right;
+    font-size: 11px;
+    color: var(--muted-foreground, #64748b);
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+  .tech-meta .comp { color: #cbd5e1; font-weight: 600; }
+  .tech-meta .highlight { color: #c084fc; font-weight: 600; }
+
+  .flow-arrow {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 8px;
+    font-size: 11px;
+    color: var(--muted-foreground, #64748b);
+    margin: -2px 0;
+  }
+  .flow-arrow::before, .flow-arrow::after {
+    content: "";
+    height: 1px;
+    width: 24px;
+    background: var(--border, rgba(255, 255, 255, 0.1));
+  }
+</style>
+</head>
+<body>
+
+<div class="arch-container">
+
+  <!-- Layer 1: Ingestion -->
+  <div class="card">
+    <div class="layer-badge b-green">Ingest</div>
+    <div class="content">
+      <div class="title-row">
+        <span class="title">已授权消息接入与标准化</span>
+      </div>
+      <div class="desc">通过 Webhook、上游流或本机来源扩展接收已授权消息，统一文本、发件人与引用信息，经过规则过滤后广播。具体采集实现由来源适配器提供。</div>
+    </div>
+    <div class="tech-meta">
+      <span class="comp">jinx-relay</span>
+      <span>:8080 · SSE Stream</span>
+    </div>
+  </div>
+
+  <div class="flow-arrow">HTTP / SSE 长连接数据流 (JSON)</div>
+
+  <!-- Layer 2: Dispatcher & Control -->
+  <div class="card">
+    <div class="layer-badge b-blue">Control</div>
+    <div class="content">
+      <div class="title-row">
+        <span class="title">流控防抖与对话节奏硬规则引擎</span>
+      </div>
+      <div class="desc">消息排队防抖（3~5s 连发合并）、滑动窗口缓冲（25条）、执行锁与自言自语/45s 高频掐断硬规则。</div>
+    </div>
+    <div class="tech-meta">
+      <span class="comp">jinx-dispatcher</span>
+      <span>Go · :8088 WebUI</span>
+    </div>
+  </div>
+
+  <div class="flow-arrow">POST /filter (毫秒级预判请求)</div>
+
+  <!-- Layer 3: Fast Decision (JEV-like) -->
+  <div class="card" style="border-color: rgba(168, 85, 247, 0.4); background: rgba(168, 85, 247, 0.04);">
+    <div class="layer-badge b-purple">Gatekeeper</div>
+    <div class="content">
+      <div class="title-row">
+        <span class="title">类 JEV 极速前置过滤与意图分类</span>
+      </div>
+      <div class="desc">采用类 JEV 协议的结构化决策 Schema，单次前向极速完成 sensitive / noise / safe 三分类黑名单过滤。</div>
+    </div>
+    <div class="tech-meta">
+      <span class="comp highlight">Intern-Decision-0.8B</span>
+      <span>类 JEV · MPS 加速 · ~300ms</span>
+    </div>
+  </div>
+
+  <div class="flow-arrow">safe 放行 (CLI / Subprocess 唤醒)</div>
+
+  <!-- Layer 4: Reasoning Agent -->
+  <div class="card">
+    <div class="layer-badge b-amber">Agent</div>
+    <div class="content">
+      <div class="title-row">
+        <span class="title">核心决策与拟真对话生成 Agent</span>
+      </div>
+      <div class="desc">加载独立群 profile，结合 Qdrant 长期记忆与群人设；遵循短对短、不说教与自然交流规则生成回复。</div>
+    </div>
+    <div class="tech-meta">
+      <span class="comp">Hermes wechat profile</span>
+      <span>gemini-3.8-flash-low</span>
+    </div>
+  </div>
+
+  <div class="flow-arrow">POST / (回复文本，非 NONE)</div>
+
+  <!-- Layer 5: Egress Bridge -->
+  <div class="card">
+    <div class="layer-badge b-cyan">Egress</div>
+    <div class="content">
+      <div class="title-row">
+        <span class="title">微信原生客户端发信桥接</span>
+      </div>
+      <div class="desc">通过窗口名精准寻址匹配目标微信群会话窗口，模拟原生交互完成投递；支持 Dry-Run 演练拦截。</div>
+    </div>
+    <div class="tech-meta">
+      <span class="comp">WeChatBridge</span>
+      <span>:5033 · Native App</span>
+    </div>
+  </div>
+
+</div>
+
+</body>
+</html>

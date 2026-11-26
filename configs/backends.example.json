@@ -1,0 +1,28 @@
+{
+  "schemaVersion": "1",
+  "backends": [
+    {
+      "id": "demo-personal",
+      "kind": "alma_personal",
+      "models": [
+        {
+          "id": "demo-provider:demo-model",
+          "label": "Replace from Alma enabled model catalog"
+        }
+      ],
+      "almaURL": "http://127.0.0.1:23001"
+    },
+    {
+      "id": "demo-text-only",
+      "kind": "text_only",
+      "models": [
+        {
+          "id": "demo-model",
+          "label": "Provider-local model ID"
+        }
+      ],
+      "almaURL": "http://127.0.0.1:23001",
+      "providerID": "demo-provider"
+    }
+  ]
+}

@@ -1,0 +1,27 @@
+[
+  {
+    "synthetic": true,
+    "fixture_date": "2026-01-01",
+    "id": "synthetic-peer-star-map",
+    "content": "@ExamplePeer 这张虚构星图的蓝点编号是多少？"
+  },
+  {
+    "synthetic": true,
+    "fixture_date": "2026-01-01",
+    "id": "synthetic-peer-board",
+    "content": "@ExamplePeer 能把演示棋盘旋转一格吗？"
+  },
+  {
+    "synthetic": true,
+    "fixture_date": "2026-01-01",
+    "id": "synthetic-current-peer-old-bot-quote",
+    "content": "[引用消息] @ExamplePeer 只确认这轮纸船演示的编号。",
+    "details": {
+      "quote": {
+        "type": 1,
+        "author": "DemoBot",
+        "content": "@DemoBot 上一轮虚构灯塔的编号是多少？"
+      }
+    }
+  }
+]

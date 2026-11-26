@@ -1,0 +1,393 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>WeChat Hermes Dispatcher 控制台</title>
+  <style>
+    :root {
+      --bg: #0d1117;
+      --card-bg: #161b22;
+      --border: #30363d;
+      --text: #c9d1d9;
+      --text-muted: #8b949e;
+      --accent: #58a6ff;
+      --green: #3fb950;
+      --red: #f85149;
+      --yellow: #d29922;
+      --purple: #bc8cff;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background-color: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      padding: 24px;
+      line-height: 1.5;
+    }
+    .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 24px;
+      padding-bottom: 16px;
+      border-bottom: 1px solid var(--border);
+    }
+    .badge {
+      padding: 4px 10px;
+      border-radius: 12px;
+      font-size: 12px;
+      font-weight: 600;
+    }
+    .badge-dryrun { background: #382006; color: var(--yellow); border: 1px solid #794a08; }
+    .badge-live { background: #0e3019; color: var(--green); border: 1px solid #1f6b33; }
+    .grid {
+      display: grid;
+      grid-template-columns: 360px 1fr;
+      gap: 24px;
+    }
+    .card {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 20px;
+      margin-bottom: 20px;
+    }
+    h2 { font-size: 16px; margin-bottom: 16px; color: #f0f6fc; }
+    .form-group { margin-bottom: 14px; }
+    label { display: block; font-size: 13px; color: var(--text-muted); margin-bottom: 6px; }
+    input[type="number"], input[type="text"], textarea {
+      width: 100%;
+      background: #0d1117;
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 8px 12px;
+      border-radius: 6px;
+      font-size: 13px;
+    }
+    textarea { resize: vertical; min-height: 80px; }
+    .switch-label {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      cursor: pointer;
+      font-size: 13px;
+    }
+    button {
+      background: #238636;
+      color: #fff;
+      border: 1px solid rgba(240, 246, 252, 0.1);
+      padding: 8px 16px;
+      border-radius: 6px;
+      font-weight: 500;
+      cursor: pointer;
+      font-size: 13px;
+    }
+    button:hover { background: #2ea043; }
+    .status-item {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 8px;
+      font-size: 13px;
+    }
+    .log-container {
+      background: #090d13;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      height: 620px;
+      overflow-y: auto;
+      padding: 12px;
+      font-family: Menlo, Monaco, "Courier New", monospace;
+      font-size: 12px;
+    }
+    .log-row {
+      padding: 6px 0;
+      border-bottom: 1px solid #1c2128;
+      display: flex;
+      gap: 12px;
+    }
+    .log-time { color: var(--text-muted); min-width: 75px; }
+    .log-level { font-weight: 600; min-width: 60px; }
+    .level-INFO { color: var(--accent); }
+    .level-REPLY { color: var(--green); }
+    .level-TRIGGER { color: var(--purple); }
+    .level-RECV { color: #58a6ff; }
+    .level-BLOCK { color: #f0883e; }
+    .level-SKIP { color: var(--text-muted); }
+    .level-WARN { color: var(--yellow); }
+    .level-ERROR { color: var(--red); font-weight: bold; }
+    .log-msg { word-break: break-all; }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <div>
+      <h1 style="font-size: 20px; font-weight: 600;">WeChat Hermes Dispatcher</h1>
+      <p style="font-size: 13px; color: var(--text-muted);">微信消息聚合缓冲 · Hermes AI 决策 · 安全隔离网关</p>
+    </div>
+    <div id="dryRunBadge" class="badge badge-dryrun">演练模式 (DRY RUN) - 仅观察不发群</div>
+  </div>
+
+  <div class="grid">
+    <div>
+      <div class="card">
+        <h2>运行状态</h2>
+        <div class="status-item"><span>Relay SSE 状态:</span><span id="relayStatus" style="color: var(--yellow);">连接中...</span></div>
+        <div class="status-item"><span>群会话与记忆:</span><span>每群独立</span></div>
+        <div class="status-item"><span>累计接收消息:</span><span id="statReceived">0</span></div>
+        <div class="status-item"><span>触发 AI 决策次数:</span><span id="statTriggered">0</span></div>
+        <div class="status-item"><span>回显确认已发送:</span><span id="statReplied">0</span></div>
+        <div class="status-item"><span>演练回复:</span><span id="statDryRun">0</span></div>
+        <div class="status-item"><span>未确认成功 / 其中结果未知:</span><span><span id="statFailed">0</span> / <span id="statUnknown">0</span></span></div>
+        <div class="status-item"><span>当前各群等待积攒:</span><span id="statPending" style="color: var(--accent);">0</span></div>
+      </div>
+
+      <div class="card">
+        <h2>调度与过滤配置</h2>
+        <div class="form-group">
+          <label>触发条数阈值 (Batch Size):</label>
+          <input type="number" id="batchSize" min="1" max="50" required aria-describedby="configStatus">
+        </div>
+        <div class="form-group">
+          <label>静默超时触发 (秒):</label>
+          <input type="number" id="idleTimeout" min="1" max="300" required aria-describedby="configStatus">
+        </div>
+        <div class="form-group">
+          <label>连续来消息时最长等待 (秒):</label>
+          <input type="number" id="maxBatchWait" min="1" max="300" required aria-describedby="configStatus">
+        </div>
+        <div class="form-group">
+          <label class="switch-label">
+            <input type="checkbox" id="dryRunToggle">
+            <span>演练模式 (开启时仅调用 Hermes 决策，不发往真实微信)</span>
+          </label>
+        </div>
+        <div class="form-group">
+          <label class="switch-label">
+            <input type="checkbox" id="decisionFilterToggle">
+            <span>开启 Intern-Decision 内容过滤（异常时停止回复；发言频率由调度器控制）</span>
+          </label>
+        </div>
+        <div class="form-group">
+          <label class="switch-label">
+            <input type="checkbox" id="bypassDecisionOnMentionToggle">
+            <span>被 @ 时跳过前置门禁（直接交由 Hermes 决策，提升响应及时性）</span>
+          </label>
+        </div>
+        <div class="form-group">
+          <label>前置决策服务地址 (Intern-Decision-0.8B):</label>
+          <input type="text" id="decisionURL">
+        </div>
+        <div class="form-group">
+          <label class="switch-label">
+            <input type="checkbox" id="ignoreXmlToggle">
+            <span>自动过滤未解密及冗余 XML 卡片 (只看纯文本)</span>
+          </label>
+        </div>
+        <div class="form-group">
+          <label>Bot 触发称呼/昵称 (用于 @ 响应，逗号或换行分隔):</label>
+          <input type="text" id="botNames">
+        </div>
+        <div class="form-group">
+          <label>白名单群 ID (每行一个):</label>
+          <textarea id="groupWhitelist"></textarea>
+        </div>
+        <div class="form-group">
+          <label>群人设与定位映射 (JSON 格式，群ID -> 定位):</label>
+          <textarea id="groupProfiles" style="min-height: 100px; font-family: monospace; font-size: 11px;"></textarea>
+        </div>
+        <div class="form-group">
+          <label>群内其他第三方 AI 列表 (JSON 格式，群ID -> 名字数组):</label>
+          <textarea id="groupOtherBots" style="min-height: 60px; font-family: monospace; font-size: 11px;"></textarea>
+        </div>
+        <div class="form-group">
+          <label for="groupRules">各群路由与过滤规则（JSON，源群 ID → 配置）:</label>
+          <textarea id="groupRules" aria-describedby="groupRulesHelp configStatus" style="min-height: 220px; font-family: monospace;"></textarea>
+          <p id="groupRulesHelp">每群固定绑定目标群 ID、搜索名称和独立 Profile。支持独立过滤、仅 @ 触发、节流及演练。门禁分类背景使用 decision_context；完整群背景供 Hermes 使用。白名单为空时不接收任何群。</p>
+        </div>
+        <div class="form-group">
+          <label>未匹配群默认人设:</label>
+          <input type="text" id="defaultProfile">
+        </div>
+        <div class="form-group">
+          <label>关键词屏蔽名单 (逗号或换行分隔):</label>
+          <textarea id="keywordBlocklist"></textarea>
+        </div>
+        <button onclick="saveConfig()">保存生效</button>
+        <p id="configStatus" role="status" aria-live="polite"></p>
+      </div>
+    </div>
+
+    <div>
+      <div class="card" style="margin-bottom: 0;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+          <h2>调度与交互日志</h2>
+          <button onclick="clearLogs()" style="background: #21262d; border-color: var(--border);">清空日志</button>
+        </div>
+        <div class="log-container" id="logContainer"></div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    let configETag = '';
+    document.querySelectorAll('.form-group').forEach(group => {
+      const label = group.querySelector('label');
+      const input = group.querySelector('input, textarea');
+      if (label && input && input.id) label.htmlFor = input.id;
+    });
+    async function loadConfig() {
+      const res = await fetch('/api/config');
+      if (!res.ok) throw new Error('无法读取配置');
+      configETag = res.headers.get('ETag') || '';
+      const data = await res.json();
+      document.getElementById('batchSize').value = data.rules.batch_size;
+      document.getElementById('idleTimeout').value = data.rules.idle_timeout_sec;
+      document.getElementById('maxBatchWait').value = data.rules.max_batch_wait_sec;
+      document.getElementById('dryRunToggle').checked = data.bridge.dry_run;
+      document.getElementById('decisionFilterToggle').checked = !!data.rules.laya_filter;
+      document.getElementById('bypassDecisionOnMentionToggle').checked = !!data.rules.bypass_decision_on_mention;
+      document.getElementById('decisionURL').value = data.rules.laya_url || 'http://127.0.0.1:8765';
+      document.getElementById('ignoreXmlToggle').checked = data.rules.ignore_xml;
+      document.getElementById('botNames').value = (data.rules.bot_names || []).join(', ');
+      document.getElementById('groupWhitelist').value = (data.rules.group_whitelist || []).join('\n');
+      document.getElementById('groupProfiles').value = JSON.stringify(data.rules.group_profiles || {}, null, 2);
+      document.getElementById('groupOtherBots').value = JSON.stringify(data.rules.group_other_bots || {}, null, 2);
+      document.getElementById('groupRules').value = JSON.stringify(data.rules.group_rules || {}, null, 2);
+      document.getElementById('defaultProfile').value = data.rules.default_profile || '';
+      document.getElementById('keywordBlocklist').value = (data.rules.keyword_blocklist || []).join('\n');
+      updateDryRunBadge(data.bridge.dry_run);
+    }
+
+    function updateDryRunBadge(isDry) {
+      const badge = document.getElementById('dryRunBadge');
+      if (isDry) {
+        badge.className = 'badge badge-dryrun';
+        badge.innerText = '演练模式 (DRY RUN) - 仅观察不发群';
+      } else {
+        badge.className = 'badge badge-live';
+        badge.innerText = '实盘发送模式 (LIVE)';
+      }
+    }
+
+    async function saveConfig() {
+      for (const id of ['batchSize', 'idleTimeout', 'maxBatchWait']) {
+        const input = document.getElementById(id);
+        input.removeAttribute('aria-invalid');
+        if (!input.reportValidity()) {
+          input.setAttribute('aria-invalid', 'true');
+          document.getElementById('configStatus').textContent = '请填写范围内的整数，不能为空。';
+          input.focus();
+          return;
+        }
+      }
+      let groupProfilesObj = {};
+      let groupOtherBotsObj = {};
+      let groupRulesObj = {};
+      try {
+        groupProfilesObj = JSON.parse(document.getElementById('groupProfiles').value || '{}');
+      } catch(e) {
+        alert('群人设配置不是合法的 JSON 格式！');
+        return;
+      }
+      try {
+        groupOtherBotsObj = JSON.parse(document.getElementById('groupOtherBots').value || '{}');
+      } catch(e) {
+        alert('群内第三方 AI 配置不是合法的 JSON 格式！');
+        return;
+      }
+      try {
+        groupRulesObj = JSON.parse(document.getElementById('groupRules').value || '{}');
+        if (!groupRulesObj || Array.isArray(groupRulesObj) || typeof groupRulesObj !== 'object') throw new Error();
+        document.getElementById('groupRules').removeAttribute('aria-invalid');
+      } catch(e) {
+        document.getElementById('groupRules').setAttribute('aria-invalid', 'true');
+        document.getElementById('configStatus').textContent = '各群规则必须是 JSON 对象。';
+        document.getElementById('groupRules').focus();
+        return;
+      }
+
+      const payload = {
+        batch_size: Number(document.getElementById('batchSize').value),
+        idle_timeout_sec: Number(document.getElementById('idleTimeout').value),
+        max_batch_wait_sec: Number(document.getElementById('maxBatchWait').value),
+        laya_url: document.getElementById('decisionURL').value.trim(),
+        laya_filter: document.getElementById('decisionFilterToggle').checked,
+        bypass_decision_on_mention: document.getElementById('bypassDecisionOnMentionToggle').checked,
+        bot_names: document.getElementById('botNames').value.split(/[\n,]+/).map(s => s.trim()).filter(Boolean),
+        dry_run: document.getElementById('dryRunToggle').checked,
+        ignore_xml: document.getElementById('ignoreXmlToggle').checked,
+        group_whitelist: document.getElementById('groupWhitelist').value.split('\n').map(s => s.trim()).filter(Boolean),
+        group_profiles: groupProfilesObj,
+        group_other_bots: groupOtherBotsObj,
+        group_rules: groupRulesObj,
+        default_profile: document.getElementById('defaultProfile').value.trim(),
+        keyword_blocklist: document.getElementById('keywordBlocklist').value.split(/[\n,]+/).map(s => s.trim()).filter(Boolean)
+      };
+      const status = document.getElementById('configStatus');
+      status.textContent = '正在保存…';
+      try {
+        const res = await fetch('/api/config', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'If-Match': configETag },
+          body: JSON.stringify(payload)
+        });
+        if (!res.ok) throw new Error(await res.text());
+        configETag = res.headers.get('ETag') || '';
+        await loadConfig();
+        status.textContent = '配置已保存并生效。';
+      } catch (error) {
+        status.textContent = `保存失败：${error.message}`;
+      }
+    }
+
+    function appendLog(item) {
+      const container = document.getElementById('logContainer');
+      const row = document.createElement('div');
+      row.className = 'log-row';
+      const level = ['INFO', 'WARN', 'ERROR', 'SKIP', 'TRIGGER', 'REPLY', 'RECV', 'BLOCK'].includes(item.level) ? item.level : 'INFO';
+      for (const [className, text] of [['log-time', item.time], [`log-level level-${level}`, `[${level}]`], ['log-msg', item.message]]) {
+        const span = document.createElement('span');
+        span.className = className;
+        span.textContent = text;
+        row.appendChild(span);
+      }
+      container.prepend(row);
+      while (container.children.length > 500) container.lastElementChild.remove();
+    }
+
+    function clearLogs() {
+      document.getElementById('logContainer').innerHTML = '';
+    }
+
+    async function pollStats() {
+      try {
+        const res = await fetch('/api/stats');
+        const data = await res.json();
+        document.getElementById('statReceived').innerText = data.total_received;
+        document.getElementById('statTriggered').innerText = data.total_triggered;
+        document.getElementById('statReplied').innerText = data.total_replied;
+        document.getElementById('statDryRun').innerText = data.total_dry_run;
+        document.getElementById('statFailed').innerText = data.total_send_failed;
+        document.getElementById('statUnknown').innerText = data.total_unknown;
+        document.getElementById('statPending').innerText = data.pending_messages;
+        document.getElementById('relayStatus').innerText = data.relay_connected ? '已连接' : '断开重试中';
+        document.getElementById('relayStatus').style.color = data.relay_connected ? 'var(--green)' : 'var(--red)';
+      } catch (e) {}
+    }
+
+    // 监听实时日志 SSE
+    const es = new EventSource('/api/events');
+    es.onmessage = (e) => {
+      try {
+        const log = JSON.parse(e.data);
+        appendLog(log);
+      } catch(err) {}
+    };
+
+    loadConfig();
+    setInterval(pollStats, 2000);
+    pollStats();
+  </script>
+</body>
+</html>

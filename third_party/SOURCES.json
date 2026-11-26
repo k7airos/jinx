@@ -1,0 +1,1240 @@
+{
+  "description": "Unmodified upstream license and patent texts; source paths are portable templates, not local absolute paths.",
+  "toolchains": {
+    "GOROOT_CORE": "go env GOROOT using the actual go1.22.5 executable",
+    "GOROOT_DESKTOP": "go env GOROOT using the actual cached go1.27.3 executable",
+    "GOMODCACHE": "go env GOMODCACHE"
+  },
+  "modules": [
+    {
+      "module": "github.com/gorilla/websocket",
+      "version": "v1.5.3",
+      "scope": "core",
+      "license": "BSD-2-Clause",
+      "checksums": {
+        "module": "h1:saDtZ6Pbx/0u+bgYQ3q96pZgCzfhKXGPqt7kZ72aNNg=",
+        "go.mod": "h1:YR8l580nyteQvAITg2hZ9XVh4b55+EU/adAjf1fMHhE="
+      }
+    },
+    {
+      "module": "github.com/egoist/mygo",
+      "version": "v0.10.0",
+      "scope": "desktop",
+      "license": "MIT; see separately licensed components",
+      "checksums": {
+        "module": "h1:HpLUrlh6WES+4VYbz5K0TvUSw/v8PSdjT/ttiUYrBFM=",
+        "go.mod": "h1:Hw9sxdSQ4tHuehHw5Q6alR1qTS8kgv3oSFxEejg+7qo="
+      }
+    },
+    {
+      "module": "github.com/ebitengine/purego",
+      "version": "v0.11.1",
+      "scope": "desktop",
+      "license": "Apache-2.0 AND BSD-3-Clause (Go-derived files)",
+      "checksums": {
+        "module": "h1:2zpWRSQNVKN4eKsKO9eM1ILDgWfYMY9GwqRmK6XeQ/0=",
+        "go.mod": "h1:DCHPP08djqhNSoTfImcnHYQRZmd0qhakvrozqaEYhGQ="
+      }
+    },
+    {
+      "module": "github.com/go-text/typesetting",
+      "version": "v0.3.5",
+      "scope": "desktop",
+      "license": "(Unlicense OR BSD-3-Clause); MIT (harfbuzz)",
+      "checksums": {
+        "module": "h1:XZPUooClHY0Vf/rFyUyuPRNEkawARaFzLMQcXLSEyPk=",
+        "go.mod": "h1:XZO1hD+nQVyvVa5IicQk7FsCa4PFQaJ2soWAP1f//68="
+      }
+    },
+    {
+      "module": "golang.org/x/image",
+      "version": "v0.46.0",
+      "scope": "desktop",
+      "license": "BSD-3-Clause",
+      "checksums": {
+        "module": "h1:b1+oYj0Jbp6K5MDT4i4/eZpYlk3V8SJhhDKh6LBHAyQ=",
+        "go.mod": "h1:3B3W05VGVQyuXucLINLjXKrqISASfi4Xj+iCVkLMwew="
+      }
+    },
+    {
+      "module": "golang.org/x/text",
+      "version": "v0.43.0",
+      "scope": "desktop",
+      "license": "BSD-3-Clause",
+      "checksums": {
+        "module": "h1:1QivrlhwAsnMOcqgOdl9my7s9OyZl8O5/UGUTJVXoWc=",
+        "go.mod": "h1:hbSIYA/amXcRXTFSZqh8tWHEoqRvvbKPJ2uz/KU+a+s="
+      }
+    },
+    {
+      "module": "golang.org/x/net",
+      "version": "v0.59.0",
+      "scope": "desktop Windows; confirmed using an isolated temporary -modfile copy; repository go.sum is missing this dependency",
+      "license": "BSD-3-Clause; MPL-2.0 (public suffix data)",
+      "checksums": {
+        "module_from_existing_cache_ziphash": "h1:5zfYln+w5XCxwrnMMJPufRgNoXEaGxl0wo5GqPXyues=",
+        "go.mod_from_offline_temporary_modfile": "h1:2DA/G1UfVbCpQPeWTmMPGY7Cs2PkBkwu743bVX5PIVg="
+      }
+    }
+  ],
+  "files": [
+    {
+      "file": "third_party/gorilla-websocket/LICENSE",
+      "kind": "license",
+      "source": "${GOMODCACHE}/github.com/gorilla/websocket@v1.5.3/LICENSE",
+      "upstream_url": "https://github.com/gorilla/websocket/blob/v1.5.3/LICENSE",
+      "sha256": "2be1b548b0387ca8948e1bb9434e709126904d15f622cc2d0d8e7f186e4d122d",
+      "bytes": 1312
+    },
+    {
+      "file": "third_party/mygo/LICENSE",
+      "kind": "license",
+      "source": "${GOMODCACHE}/github.com/egoist/mygo@v0.10.0/LICENSE",
+      "upstream_url": "https://github.com/egoist/mygo/blob/v0.10.0/LICENSE",
+      "sha256": "f0b56f4ab53beb6e18c5e155219c2e2b6000b5475c0ae3ddb3af3894fd9349b4",
+      "bytes": 1074
+    },
+    {
+      "file": "third_party/purego/LICENSE",
+      "kind": "license",
+      "source": "${GOMODCACHE}/github.com/ebitengine/purego@v0.11.1/LICENSE",
+      "upstream_url": "https://github.com/ebitengine/purego/blob/v0.11.1/LICENSE",
+      "sha256": "b40930bbcf80744c86c46a12bc9da056641d722716c378f5659b9e555ef833e1",
+      "bytes": 11357
+    },
+    {
+      "file": "third_party/typesetting/LICENSE",
+      "kind": "license",
+      "source": "${GOMODCACHE}/github.com/go-text/typesetting@v0.3.5/LICENSE",
+      "upstream_url": "https://github.com/go-text/typesetting/blob/v0.3.5/LICENSE",
+      "sha256": "6b1bf94c77d7faa0ce94f8745595bfaf4c404f8b3873f5c2ce55ca15f8e44eca",
+      "bytes": 3006
+    },
+    {
+      "file": "third_party/x-image/LICENSE",
+      "kind": "license",
+      "source": "${GOMODCACHE}/golang.org/x/image@v0.46.0/LICENSE",
+      "upstream_url": "https://go.googlesource.com/image/+/refs/tags/v0.46.0/LICENSE",
+      "sha256": "911f8f5782931320f5b8d1160a76365b83aea6447ee6c04fa6d5591467db9dad",
+      "bytes": 1453
+    },
+    {
+      "file": "third_party/x-image/PATENTS",
+      "kind": "patent grant",
+      "source": "${GOMODCACHE}/golang.org/x/image@v0.46.0/PATENTS",
+      "upstream_url": "https://go.googlesource.com/image/+/refs/tags/v0.46.0/PATENTS",
+      "sha256": "96f408bfae65bf137fc2525d3ecb030271c50c1e90799f87abf8846d8dd505cc",
+      "bytes": 1303
+    },
+    {
+      "file": "third_party/x-text/LICENSE",
+      "kind": "license",
+      "source": "${GOMODCACHE}/golang.org/x/text@v0.43.0/LICENSE",
+      "upstream_url": "https://go.googlesource.com/text/+/refs/tags/v0.43.0/LICENSE",
+      "sha256": "911f8f5782931320f5b8d1160a76365b83aea6447ee6c04fa6d5591467db9dad",
+      "bytes": 1453
+    },
+    {
+      "file": "third_party/x-text/PATENTS",
+      "kind": "patent grant",
+      "source": "${GOMODCACHE}/golang.org/x/text@v0.43.0/PATENTS",
+      "upstream_url": "https://go.googlesource.com/text/+/refs/tags/v0.43.0/PATENTS",
+      "sha256": "96f408bfae65bf137fc2525d3ecb030271c50c1e90799f87abf8846d8dd505cc",
+      "bytes": 1303
+    },
+    {
+      "file": "third_party/x-net/LICENSE",
+      "kind": "license",
+      "source": "${GOMODCACHE}/golang.org/x/net@v0.59.0/LICENSE",
+      "upstream_url": "https://go.googlesource.com/net/+/refs/tags/v0.59.0/LICENSE",
+      "sha256": "911f8f5782931320f5b8d1160a76365b83aea6447ee6c04fa6d5591467db9dad",
+      "bytes": 1453
+    },
+    {
+      "file": "third_party/x-net/PATENTS",
+      "kind": "patent grant",
+      "source": "${GOMODCACHE}/golang.org/x/net@v0.59.0/PATENTS",
+      "upstream_url": "https://go.googlesource.com/net/+/refs/tags/v0.59.0/PATENTS",
+      "sha256": "96f408bfae65bf137fc2525d3ecb030271c50c1e90799f87abf8846d8dd505cc",
+      "bytes": 1303
+    },
+    {
+      "file": "third_party/mygo/ebitengine-shader/LICENSE",
+      "kind": "license",
+      "source": "${GOMODCACHE}/github.com/egoist/mygo@v0.10.0/internal/shader/LICENSE",
+      "upstream_url": "https://github.com/egoist/mygo/blob/v0.10.0/internal/shader/LICENSE",
+      "sha256": "b40930bbcf80744c86c46a12bc9da056641d722716c378f5659b9e555ef833e1",
+      "bytes": 11357
+    },
+    {
+      "file": "third_party/typesetting/harfbuzz/LICENSE",
+      "kind": "license",
+      "source": "${GOMODCACHE}/github.com/go-text/typesetting@v0.3.5/harfbuzz/LICENSE",
+      "upstream_url": "https://github.com/go-text/typesetting/blob/v0.3.5/harfbuzz/LICENSE",
+      "sha256": "e45d96558ba3d406f95dffed6f22c3be07093475ef617bcfddf88444d6b66788",
+      "bytes": 1674
+    },
+    {
+      "file": "third_party/go/go1.22.5/LICENSE",
+      "kind": "license",
+      "source": "${GOROOT_CORE}/LICENSE",
+      "upstream_url": "https://go.googlesource.com/go/+/refs/tags/go1.22.5/LICENSE",
+      "sha256": "2d36597f7117c38b006835ae7f537487207d8ec407aa9d9980794b2030cbc067",
+      "bytes": 1479
+    },
+    {
+      "file": "third_party/go/go1.22.5/PATENTS",
+      "kind": "patent grant",
+      "source": "${GOROOT_CORE}/PATENTS",
+      "upstream_url": "https://go.googlesource.com/go/+/refs/tags/go1.22.5/PATENTS",
+      "sha256": "96f408bfae65bf137fc2525d3ecb030271c50c1e90799f87abf8846d8dd505cc",
+      "bytes": 1303
+    },
+    {
+      "file": "third_party/go/go1.22.5/vendor/x-crypto/LICENSE",
+      "kind": "license",
+      "source": "${GOROOT_CORE}/src/vendor/golang.org/x/crypto/LICENSE",
+      "upstream_url": "https://go.googlesource.com/go/+/refs/tags/go1.22.5/src/vendor/golang.org/x/crypto/LICENSE",
+      "sha256": "2d36597f7117c38b006835ae7f537487207d8ec407aa9d9980794b2030cbc067",
+      "bytes": 1479
+    },
+    {
+      "file": "third_party/go/go1.22.5/vendor/x-crypto/PATENTS",
+      "kind": "patent grant",
+      "source": "${GOROOT_CORE}/src/vendor/golang.org/x/crypto/PATENTS",
+      "upstream_url": "https://go.googlesource.com/go/+/refs/tags/go1.22.5/src/vendor/golang.org/x/crypto/PATENTS",
+      "sha256": "96f408bfae65bf137fc2525d3ecb030271c50c1e90799f87abf8846d8dd505cc",
+      "bytes": 1303
+    },
+    {
+      "file": "third_party/go/go1.22.5/vendor/x-net/LICENSE",
+      "kind": "license",
+      "source": "${GOROOT_CORE}/src/vendor/golang.org/x/net/LICENSE",
+      "upstream_url": "https://go.googlesource.com/go/+/refs/tags/go1.22.5/src/vendor/golang.org/x/net/LICENSE",
+      "sha256": "2d36597f7117c38b006835ae7f537487207d8ec407aa9d9980794b2030cbc067",
+      "bytes": 1479
+    },
+    {
+      "file": "third_party/go/go1.22.5/vendor/x-net/PATENTS",
+      "kind": "patent grant",
+      "source": "${GOROOT_CORE}/src/vendor/golang.org/x/net/PATENTS",
+      "upstream_url": "https://go.googlesource.com/go/+/refs/tags/go1.22.5/src/vendor/golang.org/x/net/PATENTS",
+      "sha256": "96f408bfae65bf137fc2525d3ecb030271c50c1e90799f87abf8846d8dd505cc",
+      "bytes": 1303
+    },
+    {
+      "file": "third_party/go/go1.22.5/vendor/x-text/LICENSE",
+      "kind": "license",
+      "source": "${GOROOT_CORE}/src/vendor/golang.org/x/text/LICENSE",
+      "upstream_url": "https://go.googlesource.com/go/+/refs/tags/go1.22.5/src/vendor/golang.org/x/text/LICENSE",
+      "sha256": "2d36597f7117c38b006835ae7f537487207d8ec407aa9d9980794b2030cbc067",
+      "bytes": 1479
+    },
+    {
+      "file": "third_party/go/go1.22.5/vendor/x-text/PATENTS",
+      "kind": "patent grant",
+      "source": "${GOROOT_CORE}/src/vendor/golang.org/x/text/PATENTS",
+      "upstream_url": "https://go.googlesource.com/go/+/refs/tags/go1.22.5/src/vendor/golang.org/x/text/PATENTS",
+      "sha256": "96f408bfae65bf137fc2525d3ecb030271c50c1e90799f87abf8846d8dd505cc",
+      "bytes": 1303
+    },
+    {
+      "file": "third_party/go/go1.27.3/LICENSE",
+      "kind": "license",
+      "source": "${GOROOT_DESKTOP}/LICENSE",
+      "upstream_url": "https://go.googlesource.com/go/+/refs/tags/go1.27.3/LICENSE",
+      "sha256": "911f8f5782931320f5b8d1160a76365b83aea6447ee6c04fa6d5591467db9dad",
+      "bytes": 1453
+    },
+    {
+      "file": "third_party/go/go1.27.3/PATENTS",
+      "kind": "patent grant",
+      "source": "${GOROOT_DESKTOP}/PATENTS",
+      "upstream_url": "https://go.googlesource.com/go/+/refs/tags/go1.27.3/PATENTS",
+      "sha256": "96f408bfae65bf137fc2525d3ecb030271c50c1e90799f87abf8846d8dd505cc",
+      "bytes": 1303
+    },
+    {
+      "file": "third_party/go/go1.27.3/vendor/x-crypto/LICENSE",
+      "kind": "license",
+      "source": "${GOROOT_DESKTOP}/src/vendor/golang.org/x/crypto/LICENSE",
+      "upstream_url": "https://go.googlesource.com/go/+/refs/tags/go1.27.3/src/vendor/golang.org/x/crypto/LICENSE",
+      "sha256": "911f8f5782931320f5b8d1160a76365b83aea6447ee6c04fa6d5591467db9dad",
+      "bytes": 1453
+    },
+    {
+      "file": "third_party/go/go1.27.3/vendor/x-crypto/PATENTS",
+      "kind": "patent grant",
+      "source": "${GOROOT_DESKTOP}/src/vendor/golang.org/x/crypto/PATENTS",
+      "upstream_url": "https://go.googlesource.com/go/+/refs/tags/go1.27.3/src/vendor/golang.org/x/crypto/PATENTS",
+      "sha256": "96f408bfae65bf137fc2525d3ecb030271c50c1e90799f87abf8846d8dd505cc",
+      "bytes": 1303
+    },
+    {
+      "file": "third_party/go/go1.27.3/vendor/x-net/LICENSE",
+      "kind": "license",
+      "source": "${GOROOT_DESKTOP}/src/vendor/golang.org/x/net/LICENSE",
+      "upstream_url": "https://go.googlesource.com/go/+/refs/tags/go1.27.3/src/vendor/golang.org/x/net/LICENSE",
+      "sha256": "911f8f5782931320f5b8d1160a76365b83aea6447ee6c04fa6d5591467db9dad",
+      "bytes": 1453
+    },
+    {
+      "file": "third_party/go/go1.27.3/vendor/x-net/PATENTS",
+      "kind": "patent grant",
+      "source": "${GOROOT_DESKTOP}/src/vendor/golang.org/x/net/PATENTS",
+      "upstream_url": "https://go.googlesource.com/go/+/refs/tags/go1.27.3/src/vendor/golang.org/x/net/PATENTS",
+      "sha256": "96f408bfae65bf137fc2525d3ecb030271c50c1e90799f87abf8846d8dd505cc",
+      "bytes": 1303
+    },
+    {
+      "file": "third_party/go/go1.27.3/vendor/x-text/LICENSE",
+      "kind": "license",
+      "source": "${GOROOT_DESKTOP}/src/vendor/golang.org/x/text/LICENSE",
+      "upstream_url": "https://go.googlesource.com/go/+/refs/tags/go1.27.3/src/vendor/golang.org/x/text/LICENSE",
+      "sha256": "911f8f5782931320f5b8d1160a76365b83aea6447ee6c04fa6d5591467db9dad",
+      "bytes": 1453
+    },
+    {
+      "file": "third_party/go/go1.27.3/vendor/x-text/PATENTS",
+      "kind": "patent grant",
+      "source": "${GOROOT_DESKTOP}/src/vendor/golang.org/x/text/PATENTS",
+      "upstream_url": "https://go.googlesource.com/go/+/refs/tags/go1.27.3/src/vendor/golang.org/x/text/PATENTS",
+      "sha256": "96f408bfae65bf137fc2525d3ecb030271c50c1e90799f87abf8846d8dd505cc",
+      "bytes": 1303
+    },
+    {
+      "file": "third_party/lucide/LICENSE",
+      "kind": "license",
+      "source": "https://raw.githubusercontent.com/lucide-icons/lucide/0.468.0/LICENSE",
+      "upstream_url": "https://raw.githubusercontent.com/lucide-icons/lucide/0.468.0/LICENSE",
+      "sha256": "1e7290b35280a048667bbf0ebabac1c7fd52a75300e8b2946ac165715997f2bc",
+      "bytes": 880
+    },
+    {
+      "file": "third_party/lucide/feather/LICENSE",
+      "kind": "license",
+      "source": "https://raw.githubusercontent.com/feathericons/feather/v4.29.2/LICENSE",
+      "upstream_url": "https://raw.githubusercontent.com/feathericons/feather/v4.29.2/LICENSE",
+      "sha256": "308028e93fcf84972523cdf6e616f73168546b4953895f516d01287f16fe7bee",
+      "bytes": 1082
+    },
+    {
+      "file": "third_party/mygo/mingcute/LICENSE",
+      "kind": "license",
+      "source": "https://raw.githubusercontent.com/Richard9394/MingCute/9dc7d3ad074fb16477096a6a8109a6467d0e2fe3/LICENSE",
+      "upstream_url": "https://raw.githubusercontent.com/Richard9394/MingCute/9dc7d3ad074fb16477096a6a8109a6467d0e2fe3/LICENSE",
+      "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
+      "bytes": 11358
+    },
+    {
+      "file": "third_party/x-net/publicsuffix/LICENSE",
+      "kind": "license",
+      "source": "https://raw.githubusercontent.com/publicsuffix/list/d6c92f1bbb7433e5db7b8405c25d4035fb8ff376/LICENSE",
+      "upstream_url": "https://raw.githubusercontent.com/publicsuffix/list/d6c92f1bbb7433e5db7b8405c25d4035fb8ff376/LICENSE",
+      "sha256": "66a3107d5ad6a058aab753eaac2047ccb2ed0e39465dd0fe5844da3e300d5172",
+      "bytes": 16727
+    },
+    {
+      "file": "third_party/x-net/publicsuffix/SOURCE_NOTICE.txt",
+      "kind": "upstream source notice excerpt",
+      "source": "https://raw.githubusercontent.com/publicsuffix/list/d6c92f1bbb7433e5db7b8405c25d4035fb8ff376/public_suffix_list.dat (first three lines)",
+      "upstream_url": "https://raw.githubusercontent.com/publicsuffix/list/d6c92f1bbb7433e5db7b8405c25d4035fb8ff376/public_suffix_list.dat",
+      "sha256": "82f8388aa97699e5ef695a05ab8251f78303c3de725e5c81b702f3d43fd2ce62",
+      "bytes": 203
+    }
+  ],
+  "dependency_scans": [
+    {
+      "context": "core darwin/arm64",
+      "toolchain": "go1.22.5",
+      "complete": true,
+      "external_packages": {
+        "github.com/gorilla/websocket@v1.5.3": [
+          "github.com/gorilla/websocket"
+        ]
+      },
+      "standard_library_vendored_packages": [
+        "vendor/golang.org/x/net/dns/dnsmessage",
+        "vendor/golang.org/x/net/route",
+        "vendor/golang.org/x/crypto/cryptobyte/asn1",
+        "vendor/golang.org/x/crypto/cryptobyte",
+        "vendor/golang.org/x/crypto/internal/alias",
+        "vendor/golang.org/x/crypto/chacha20",
+        "vendor/golang.org/x/crypto/internal/poly1305",
+        "vendor/golang.org/x/crypto/chacha20poly1305",
+        "vendor/golang.org/x/crypto/hkdf",
+        "vendor/golang.org/x/text/transform",
+        "vendor/golang.org/x/text/unicode/bidi",
+        "vendor/golang.org/x/text/secure/bidirule",
+        "vendor/golang.org/x/text/unicode/norm",
+        "vendor/golang.org/x/net/idna",
+        "vendor/golang.org/x/net/http/httpguts",
+        "vendor/golang.org/x/net/http/httpproxy",
+        "vendor/golang.org/x/net/http2/hpack"
+      ],
+      "embedded_files": [
+        {
+          "package": "crypto/internal/nistec",
+          "files": [
+            "p256_asm_table.bin"
+          ]
+        },
+        {
+          "package": "jinx/internal/dispatcher",
+          "files": [
+            "web/architecture.html",
+            "web/index.html",
+            "web/tech-architecture.html"
+          ]
+        },
+        {
+          "package": "jinx/internal/relay/assets",
+          "files": [
+            "static/index.html"
+          ]
+        }
+      ],
+      "errors": []
+    },
+    {
+      "context": "desktop darwin/arm64",
+      "toolchain": "go1.27.3",
+      "complete": true,
+      "external_packages": {
+        "github.com/egoist/mygo@v0.10.0": [
+          "github.com/egoist/mygo/internal/i18nlink",
+          "github.com/egoist/mygo/i18n",
+          "github.com/egoist/mygo/internal/accelerator",
+          "github.com/egoist/mygo/transfer",
+          "github.com/egoist/mygo/internal/platform",
+          "github.com/egoist/mygo/internal/bridge",
+          "github.com/egoist/mygo/internal/pacing",
+          "github.com/egoist/mygo/internal/watchdriver",
+          "github.com/egoist/mygo/internal/darwin",
+          "github.com/egoist/mygo/internal/keepstate",
+          "github.com/egoist/mygo/internal/l10n",
+          "github.com/egoist/mygo/internal/schemehost",
+          "github.com/egoist/mygo/internal/surface",
+          "github.com/egoist/mygo/internal/tsgen",
+          "github.com/egoist/mygo/internal/update",
+          "github.com/egoist/mygo/netproxy",
+          "github.com/egoist/mygo",
+          "github.com/egoist/mygo/internal/gamut",
+          "github.com/egoist/mygo/internal/scene",
+          "github.com/egoist/mygo/internal/raster",
+          "github.com/egoist/mygo/internal/gpu",
+          "github.com/egoist/mygo/internal/gpu/metal",
+          "github.com/egoist/mygo/internal/imagesrc",
+          "github.com/egoist/mygo/internal/media",
+          "github.com/egoist/mygo/internal/rope",
+          "github.com/egoist/mygo/internal/vec",
+          "github.com/egoist/mygo/internal/svg",
+          "github.com/egoist/mygo/internal/text",
+          "github.com/egoist/mygo/internal/viewhost",
+          "github.com/egoist/mygo/ui"
+        ],
+        "golang.org/x/text@v0.43.0": [
+          "golang.org/x/text/internal/tag",
+          "golang.org/x/text/internal/language",
+          "golang.org/x/text/internal/language/compact",
+          "golang.org/x/text/language"
+        ],
+        "github.com/ebitengine/purego@v0.11.1": [
+          "github.com/ebitengine/purego/internal/cgo",
+          "github.com/ebitengine/purego/internal/strings",
+          "github.com/ebitengine/purego",
+          "github.com/ebitengine/purego/objc"
+        ],
+        "github.com/go-text/typesetting@v0.3.5": [
+          "github.com/go-text/typesetting/language",
+          "github.com/go-text/typesetting/internal/unicodedata",
+          "github.com/go-text/typesetting/segmenter"
+        ],
+        "golang.org/x/image@v0.46.0": [
+          "golang.org/x/image/internal/safemath",
+          "golang.org/x/image/bmp",
+          "golang.org/x/image/riff",
+          "golang.org/x/image/vp8",
+          "golang.org/x/image/vp8l",
+          "golang.org/x/image/webp"
+        ]
+      },
+      "standard_library_vendored_packages": [
+        "vendor/golang.org/x/net/dns/dnsmessage",
+        "vendor/golang.org/x/crypto/cryptobyte/asn1",
+        "vendor/golang.org/x/crypto/cryptobyte",
+        "vendor/golang.org/x/crypto/internal/alias",
+        "vendor/golang.org/x/crypto/chacha20",
+        "vendor/golang.org/x/crypto/internal/poly1305",
+        "vendor/golang.org/x/crypto/chacha20poly1305",
+        "vendor/golang.org/x/text/transform",
+        "vendor/golang.org/x/text/unicode/bidi",
+        "vendor/golang.org/x/text/secure/bidirule",
+        "vendor/golang.org/x/text/unicode/norm",
+        "vendor/golang.org/x/net/idna",
+        "vendor/golang.org/x/net/http/httpguts",
+        "vendor/golang.org/x/net/http/httpproxy",
+        "vendor/golang.org/x/net/http2/hpack"
+      ],
+      "embedded_files": [
+        {
+          "package": "github.com/egoist/mygo/internal/bridge",
+          "files": [
+            "bridge.js"
+          ]
+        },
+        {
+          "package": "github.com/egoist/mygo/internal/l10n",
+          "files": [
+            "en.json",
+            "messages/en.json"
+          ]
+        },
+        {
+          "package": "github.com/egoist/mygo/internal/gpu/metal",
+          "files": [
+            "effect.metal",
+            "shader.metal",
+            "shadereffect.metal"
+          ]
+        },
+        {
+          "package": "jinx-desktop/assets",
+          "files": [
+            "jinx-logo.png"
+          ]
+        }
+      ],
+      "errors": []
+    },
+    {
+      "context": "desktop darwin/arm64 with e2e tag",
+      "toolchain": "go1.27.3",
+      "complete": true,
+      "external_packages": {
+        "github.com/egoist/mygo@v0.10.0": [
+          "github.com/egoist/mygo/internal/i18nlink",
+          "github.com/egoist/mygo/i18n",
+          "github.com/egoist/mygo/internal/accelerator",
+          "github.com/egoist/mygo/transfer",
+          "github.com/egoist/mygo/internal/platform",
+          "github.com/egoist/mygo/internal/bridge",
+          "github.com/egoist/mygo/internal/pacing",
+          "github.com/egoist/mygo/internal/watchdriver",
+          "github.com/egoist/mygo/internal/darwin",
+          "github.com/egoist/mygo/internal/keepstate",
+          "github.com/egoist/mygo/internal/l10n",
+          "github.com/egoist/mygo/internal/schemehost",
+          "github.com/egoist/mygo/internal/surface",
+          "github.com/egoist/mygo/internal/tsgen",
+          "github.com/egoist/mygo/internal/update",
+          "github.com/egoist/mygo/netproxy",
+          "github.com/egoist/mygo",
+          "github.com/egoist/mygo/plugins/automation",
+          "github.com/egoist/mygo/internal/gamut",
+          "github.com/egoist/mygo/internal/scene",
+          "github.com/egoist/mygo/internal/raster",
+          "github.com/egoist/mygo/internal/gpu",
+          "github.com/egoist/mygo/internal/gpu/metal",
+          "github.com/egoist/mygo/internal/imagesrc",
+          "github.com/egoist/mygo/internal/media",
+          "github.com/egoist/mygo/internal/rope",
+          "github.com/egoist/mygo/internal/vec",
+          "github.com/egoist/mygo/internal/svg",
+          "github.com/egoist/mygo/internal/text",
+          "github.com/egoist/mygo/internal/viewhost",
+          "github.com/egoist/mygo/ui"
+        ],
+        "golang.org/x/text@v0.43.0": [
+          "golang.org/x/text/internal/tag",
+          "golang.org/x/text/internal/language",
+          "golang.org/x/text/internal/language/compact",
+          "golang.org/x/text/language"
+        ],
+        "github.com/ebitengine/purego@v0.11.1": [
+          "github.com/ebitengine/purego/internal/cgo",
+          "github.com/ebitengine/purego/internal/strings",
+          "github.com/ebitengine/purego",
+          "github.com/ebitengine/purego/objc"
+        ],
+        "github.com/go-text/typesetting@v0.3.5": [
+          "github.com/go-text/typesetting/language",
+          "github.com/go-text/typesetting/internal/unicodedata",
+          "github.com/go-text/typesetting/segmenter"
+        ],
+        "golang.org/x/image@v0.46.0": [
+          "golang.org/x/image/internal/safemath",
+          "golang.org/x/image/bmp",
+          "golang.org/x/image/riff",
+          "golang.org/x/image/vp8",
+          "golang.org/x/image/vp8l",
+          "golang.org/x/image/webp"
+        ]
+      },
+      "standard_library_vendored_packages": [
+        "vendor/golang.org/x/net/dns/dnsmessage",
+        "vendor/golang.org/x/crypto/cryptobyte/asn1",
+        "vendor/golang.org/x/crypto/cryptobyte",
+        "vendor/golang.org/x/crypto/internal/alias",
+        "vendor/golang.org/x/crypto/chacha20",
+        "vendor/golang.org/x/crypto/internal/poly1305",
+        "vendor/golang.org/x/crypto/chacha20poly1305",
+        "vendor/golang.org/x/text/transform",
+        "vendor/golang.org/x/text/unicode/bidi",
+        "vendor/golang.org/x/text/secure/bidirule",
+        "vendor/golang.org/x/text/unicode/norm",
+        "vendor/golang.org/x/net/idna",
+        "vendor/golang.org/x/net/http/httpguts",
+        "vendor/golang.org/x/net/http/httpproxy",
+        "vendor/golang.org/x/net/http2/hpack"
+      ],
+      "embedded_files": [
+        {
+          "package": "github.com/egoist/mygo/internal/bridge",
+          "files": [
+            "bridge.js"
+          ]
+        },
+        {
+          "package": "github.com/egoist/mygo/internal/l10n",
+          "files": [
+            "en.json",
+            "messages/en.json"
+          ]
+        },
+        {
+          "package": "github.com/egoist/mygo/internal/gpu/metal",
+          "files": [
+            "effect.metal",
+            "shader.metal",
+            "shadereffect.metal"
+          ]
+        },
+        {
+          "package": "jinx-desktop/assets",
+          "files": [
+            "jinx-logo.png"
+          ]
+        }
+      ],
+      "errors": []
+    },
+    {
+      "context": "desktop linux/amd64 CGO_ENABLED=0",
+      "toolchain": "go1.27.3",
+      "complete": true,
+      "external_packages": {
+        "github.com/egoist/mygo@v0.10.0": [
+          "github.com/egoist/mygo/internal/i18nlink",
+          "github.com/egoist/mygo/i18n",
+          "github.com/egoist/mygo/internal/accelerator",
+          "github.com/egoist/mygo/transfer",
+          "github.com/egoist/mygo/internal/platform",
+          "github.com/egoist/mygo/internal/bridge",
+          "github.com/egoist/mygo/internal/keepstate",
+          "github.com/egoist/mygo/internal/l10n",
+          "github.com/egoist/mygo/internal/scene",
+          "github.com/egoist/mygo/internal/raster",
+          "github.com/egoist/mygo/internal/gpu",
+          "github.com/egoist/mygo/internal/gpu/gl",
+          "github.com/egoist/mygo/internal/watchdriver",
+          "github.com/egoist/mygo/internal/inotify",
+          "github.com/egoist/mygo/internal/pacing",
+          "github.com/egoist/mygo/internal/linux",
+          "github.com/egoist/mygo/internal/schemehost",
+          "github.com/egoist/mygo/internal/surface",
+          "github.com/egoist/mygo/internal/tsgen",
+          "github.com/egoist/mygo/internal/update",
+          "github.com/egoist/mygo/netproxy",
+          "github.com/egoist/mygo",
+          "github.com/egoist/mygo/internal/gamut",
+          "github.com/egoist/mygo/internal/imagesrc",
+          "github.com/egoist/mygo/internal/media",
+          "github.com/egoist/mygo/internal/rope",
+          "github.com/egoist/mygo/internal/vec",
+          "github.com/egoist/mygo/internal/svg",
+          "github.com/egoist/mygo/internal/text",
+          "github.com/egoist/mygo/internal/viewhost",
+          "github.com/egoist/mygo/ui"
+        ],
+        "golang.org/x/text@v0.43.0": [
+          "golang.org/x/text/internal/tag",
+          "golang.org/x/text/internal/language",
+          "golang.org/x/text/internal/language/compact",
+          "golang.org/x/text/language"
+        ],
+        "github.com/ebitengine/purego@v0.11.1": [
+          "github.com/ebitengine/purego/internal/fakecgo",
+          "github.com/ebitengine/purego/internal/strings",
+          "github.com/ebitengine/purego"
+        ],
+        "github.com/go-text/typesetting@v0.3.5": [
+          "github.com/go-text/typesetting/language",
+          "github.com/go-text/typesetting/internal/unicodedata",
+          "github.com/go-text/typesetting/segmenter"
+        ],
+        "golang.org/x/image@v0.46.0": [
+          "golang.org/x/image/internal/safemath",
+          "golang.org/x/image/bmp",
+          "golang.org/x/image/riff",
+          "golang.org/x/image/vp8",
+          "golang.org/x/image/vp8l",
+          "golang.org/x/image/webp"
+        ]
+      },
+      "standard_library_vendored_packages": [
+        "vendor/golang.org/x/net/dns/dnsmessage",
+        "vendor/golang.org/x/crypto/cryptobyte/asn1",
+        "vendor/golang.org/x/crypto/cryptobyte",
+        "vendor/golang.org/x/crypto/internal/alias",
+        "vendor/golang.org/x/crypto/chacha20",
+        "vendor/golang.org/x/crypto/internal/poly1305",
+        "vendor/golang.org/x/sys/cpu",
+        "vendor/golang.org/x/crypto/chacha20poly1305",
+        "vendor/golang.org/x/text/transform",
+        "vendor/golang.org/x/text/unicode/bidi",
+        "vendor/golang.org/x/text/secure/bidirule",
+        "vendor/golang.org/x/text/unicode/norm",
+        "vendor/golang.org/x/net/idna",
+        "vendor/golang.org/x/net/http/httpguts",
+        "vendor/golang.org/x/net/http/httpproxy",
+        "vendor/golang.org/x/net/http2/hpack"
+      ],
+      "embedded_files": [
+        {
+          "package": "github.com/egoist/mygo/internal/bridge",
+          "files": [
+            "bridge.js"
+          ]
+        },
+        {
+          "package": "github.com/egoist/mygo/internal/l10n",
+          "files": [
+            "en.json",
+            "messages/en.json"
+          ]
+        },
+        {
+          "package": "github.com/egoist/mygo/internal/gpu/gl",
+          "files": [
+            "effect.glsl",
+            "shader.glsl"
+          ]
+        },
+        {
+          "package": "jinx-desktop/assets",
+          "files": [
+            "jinx-logo.png"
+          ]
+        }
+      ],
+      "errors": []
+    },
+    {
+      "context": "desktop windows/amd64 CGO_ENABLED=0; partial due to missing x/net go.sum entry",
+      "toolchain": "go1.27.3",
+      "complete": false,
+      "external_packages": {
+        "github.com/egoist/mygo@v0.10.0": [
+          "github.com/egoist/mygo/internal/i18nlink",
+          "github.com/egoist/mygo/i18n",
+          "github.com/egoist/mygo/internal/accelerator",
+          "github.com/egoist/mygo/transfer",
+          "github.com/egoist/mygo/internal/platform",
+          "github.com/egoist/mygo/internal/bridge",
+          "github.com/egoist/mygo/internal/keepstate",
+          "github.com/egoist/mygo/internal/l10n",
+          "github.com/egoist/mygo/internal/schemehost",
+          "github.com/egoist/mygo/internal/surface",
+          "github.com/egoist/mygo/internal/tsgen",
+          "github.com/egoist/mygo/internal/update",
+          "github.com/egoist/mygo/internal/contentrules",
+          "github.com/egoist/mygo/internal/gpu/d3d11/device",
+          "github.com/egoist/mygo/internal/menuicon",
+          "github.com/egoist/mygo/internal/schemestream",
+          "github.com/egoist/mygo/internal/watchdriver",
+          "github.com/egoist/mygo/internal/webview2",
+          "github.com/egoist/mygo/internal/windows",
+          "github.com/egoist/mygo/netproxy",
+          "github.com/egoist/mygo",
+          "github.com/egoist/mygo/internal/gamut",
+          "github.com/egoist/mygo/internal/scene",
+          "github.com/egoist/mygo/internal/raster",
+          "github.com/egoist/mygo/internal/gpu",
+          "github.com/egoist/mygo/internal/pacing",
+          "github.com/egoist/mygo/internal/gpu/d3d11",
+          "github.com/egoist/mygo/internal/imagesrc",
+          "github.com/egoist/mygo/internal/media",
+          "github.com/egoist/mygo/internal/rope",
+          "github.com/egoist/mygo/internal/vec",
+          "github.com/egoist/mygo/internal/svg",
+          "github.com/egoist/mygo/internal/text",
+          "github.com/egoist/mygo/internal/viewhost",
+          "github.com/egoist/mygo/ui"
+        ],
+        "golang.org/x/text@v0.43.0": [
+          "golang.org/x/text/internal/tag",
+          "golang.org/x/text/internal/language",
+          "golang.org/x/text/internal/language/compact",
+          "golang.org/x/text/language",
+          "golang.org/x/text/transform",
+          "golang.org/x/text/width"
+        ],
+        "github.com/ebitengine/purego@v0.11.1": [
+          "github.com/ebitengine/purego/internal/strings",
+          "github.com/ebitengine/purego"
+        ],
+        "github.com/go-text/typesetting@v0.3.5": [
+          "github.com/go-text/typesetting/language",
+          "github.com/go-text/typesetting/internal/unicodedata",
+          "github.com/go-text/typesetting/segmenter"
+        ],
+        "golang.org/x/image@v0.46.0": [
+          "golang.org/x/image/internal/safemath",
+          "golang.org/x/image/bmp",
+          "golang.org/x/image/riff",
+          "golang.org/x/image/vp8",
+          "golang.org/x/image/vp8l",
+          "golang.org/x/image/webp"
+        ]
+      },
+      "standard_library_vendored_packages": [
+        "vendor/golang.org/x/net/dns/dnsmessage",
+        "vendor/golang.org/x/crypto/cryptobyte/asn1",
+        "vendor/golang.org/x/crypto/cryptobyte",
+        "vendor/golang.org/x/crypto/internal/alias",
+        "vendor/golang.org/x/crypto/chacha20",
+        "vendor/golang.org/x/crypto/internal/poly1305",
+        "vendor/golang.org/x/sys/cpu",
+        "vendor/golang.org/x/crypto/chacha20poly1305",
+        "vendor/golang.org/x/text/transform",
+        "vendor/golang.org/x/text/unicode/bidi",
+        "vendor/golang.org/x/text/secure/bidirule",
+        "vendor/golang.org/x/text/unicode/norm",
+        "vendor/golang.org/x/net/idna",
+        "vendor/golang.org/x/net/http/httpguts",
+        "vendor/golang.org/x/net/http/httpproxy",
+        "vendor/golang.org/x/net/http2/hpack"
+      ],
+      "embedded_files": [
+        {
+          "package": "github.com/egoist/mygo/internal/bridge",
+          "files": [
+            "bridge.js"
+          ]
+        },
+        {
+          "package": "github.com/egoist/mygo/internal/l10n",
+          "files": [
+            "en.json",
+            "messages/en.json"
+          ]
+        },
+        {
+          "package": "github.com/egoist/mygo/internal/windows",
+          "files": [
+            "keys.js"
+          ]
+        },
+        {
+          "package": "github.com/egoist/mygo/internal/gpu/d3d11",
+          "files": [
+            "classes.hlsl",
+            "effect.hlsl",
+            "shader.hlsl"
+          ]
+        },
+        {
+          "package": "jinx-desktop/assets",
+          "files": [
+            "jinx-logo.png"
+          ]
+        }
+      ],
+      "errors": [
+        {
+          "package": "golang.org/x/net/publicsuffix",
+          "reason": "missing existing desktop/go.sum entry for golang.org/x/net/publicsuffix"
+        }
+      ]
+    },
+    {
+      "context": "desktop darwin/arm64 including project test dependencies; tests not executed",
+      "toolchain": "go1.27.3",
+      "complete": true,
+      "external_packages": {
+        "github.com/egoist/mygo@v0.10.0": [
+          "github.com/egoist/mygo/internal/i18nlink",
+          "github.com/egoist/mygo/i18n",
+          "github.com/egoist/mygo/internal/accelerator",
+          "github.com/egoist/mygo/transfer",
+          "github.com/egoist/mygo/internal/platform",
+          "github.com/egoist/mygo/internal/bridge",
+          "github.com/egoist/mygo/internal/pacing",
+          "github.com/egoist/mygo/internal/watchdriver",
+          "github.com/egoist/mygo/internal/darwin",
+          "github.com/egoist/mygo/internal/keepstate",
+          "github.com/egoist/mygo/internal/l10n",
+          "github.com/egoist/mygo/internal/schemehost",
+          "github.com/egoist/mygo/internal/surface",
+          "github.com/egoist/mygo/internal/tsgen",
+          "github.com/egoist/mygo/internal/update",
+          "github.com/egoist/mygo/netproxy",
+          "github.com/egoist/mygo",
+          "github.com/egoist/mygo/internal/gamut",
+          "github.com/egoist/mygo/internal/scene",
+          "github.com/egoist/mygo/internal/raster",
+          "github.com/egoist/mygo/internal/gpu",
+          "github.com/egoist/mygo/internal/gpu/metal",
+          "github.com/egoist/mygo/internal/imagesrc",
+          "github.com/egoist/mygo/internal/media",
+          "github.com/egoist/mygo/internal/rope",
+          "github.com/egoist/mygo/internal/vec",
+          "github.com/egoist/mygo/internal/svg",
+          "github.com/egoist/mygo/internal/text",
+          "github.com/egoist/mygo/internal/viewhost",
+          "github.com/egoist/mygo/ui"
+        ],
+        "golang.org/x/text@v0.43.0": [
+          "golang.org/x/text/internal/tag",
+          "golang.org/x/text/internal/language",
+          "golang.org/x/text/internal/language/compact",
+          "golang.org/x/text/language"
+        ],
+        "github.com/ebitengine/purego@v0.11.1": [
+          "github.com/ebitengine/purego/internal/cgo",
+          "github.com/ebitengine/purego/internal/strings",
+          "github.com/ebitengine/purego",
+          "github.com/ebitengine/purego/objc"
+        ],
+        "github.com/go-text/typesetting@v0.3.5": [
+          "github.com/go-text/typesetting/language",
+          "github.com/go-text/typesetting/internal/unicodedata",
+          "github.com/go-text/typesetting/segmenter"
+        ],
+        "golang.org/x/image@v0.46.0": [
+          "golang.org/x/image/internal/safemath",
+          "golang.org/x/image/bmp",
+          "golang.org/x/image/riff",
+          "golang.org/x/image/vp8",
+          "golang.org/x/image/vp8l",
+          "golang.org/x/image/webp"
+        ]
+      },
+      "standard_library_vendored_packages": [
+        "vendor/golang.org/x/net/dns/dnsmessage",
+        "vendor/golang.org/x/crypto/cryptobyte/asn1",
+        "vendor/golang.org/x/crypto/cryptobyte",
+        "vendor/golang.org/x/crypto/internal/alias",
+        "vendor/golang.org/x/crypto/chacha20",
+        "vendor/golang.org/x/crypto/internal/poly1305",
+        "vendor/golang.org/x/crypto/chacha20poly1305",
+        "vendor/golang.org/x/text/transform",
+        "vendor/golang.org/x/text/unicode/bidi",
+        "vendor/golang.org/x/text/secure/bidirule",
+        "vendor/golang.org/x/text/unicode/norm",
+        "vendor/golang.org/x/net/idna",
+        "vendor/golang.org/x/net/http/httpguts",
+        "vendor/golang.org/x/net/http/httpproxy",
+        "vendor/golang.org/x/net/http2/hpack"
+      ],
+      "embedded_files": [
+        {
+          "package": "github.com/egoist/mygo/internal/bridge",
+          "files": [
+            "bridge.js"
+          ]
+        },
+        {
+          "package": "github.com/egoist/mygo/internal/l10n",
+          "files": [
+            "en.json",
+            "messages/en.json"
+          ]
+        },
+        {
+          "package": "github.com/egoist/mygo/internal/gpu/metal",
+          "files": [
+            "effect.metal",
+            "shader.metal",
+            "shadereffect.metal"
+          ]
+        },
+        {
+          "package": "jinx-desktop/assets",
+          "files": [
+            "jinx-logo.png"
+          ]
+        }
+      ],
+      "errors": []
+    },
+    {
+      "context": "desktop linux/amd64 CGO_ENABLED=0 including project test dependencies; tests not executed",
+      "toolchain": "go1.27.3",
+      "complete": true,
+      "external_packages": {
+        "github.com/egoist/mygo@v0.10.0": [
+          "github.com/egoist/mygo/internal/i18nlink",
+          "github.com/egoist/mygo/i18n",
+          "github.com/egoist/mygo/internal/accelerator",
+          "github.com/egoist/mygo/transfer",
+          "github.com/egoist/mygo/internal/platform",
+          "github.com/egoist/mygo/internal/bridge",
+          "github.com/egoist/mygo/internal/keepstate",
+          "github.com/egoist/mygo/internal/l10n",
+          "github.com/egoist/mygo/internal/scene",
+          "github.com/egoist/mygo/internal/raster",
+          "github.com/egoist/mygo/internal/gpu",
+          "github.com/egoist/mygo/internal/gpu/gl",
+          "github.com/egoist/mygo/internal/watchdriver",
+          "github.com/egoist/mygo/internal/inotify",
+          "github.com/egoist/mygo/internal/pacing",
+          "github.com/egoist/mygo/internal/linux",
+          "github.com/egoist/mygo/internal/schemehost",
+          "github.com/egoist/mygo/internal/surface",
+          "github.com/egoist/mygo/internal/tsgen",
+          "github.com/egoist/mygo/internal/update",
+          "github.com/egoist/mygo/netproxy",
+          "github.com/egoist/mygo",
+          "github.com/egoist/mygo/internal/gamut",
+          "github.com/egoist/mygo/internal/imagesrc",
+          "github.com/egoist/mygo/internal/media",
+          "github.com/egoist/mygo/internal/rope",
+          "github.com/egoist/mygo/internal/vec",
+          "github.com/egoist/mygo/internal/svg",
+          "github.com/egoist/mygo/internal/text",
+          "github.com/egoist/mygo/internal/viewhost",
+          "github.com/egoist/mygo/ui"
+        ],
+        "golang.org/x/text@v0.43.0": [
+          "golang.org/x/text/internal/tag",
+          "golang.org/x/text/internal/language",
+          "golang.org/x/text/internal/language/compact",
+          "golang.org/x/text/language"
+        ],
+        "github.com/ebitengine/purego@v0.11.1": [
+          "github.com/ebitengine/purego/internal/fakecgo",
+          "github.com/ebitengine/purego/internal/strings",
+          "github.com/ebitengine/purego"
+        ],
+        "github.com/go-text/typesetting@v0.3.5": [
+          "github.com/go-text/typesetting/language",
+          "github.com/go-text/typesetting/internal/unicodedata",
+          "github.com/go-text/typesetting/segmenter"
+        ],
+        "golang.org/x/image@v0.46.0": [
+          "golang.org/x/image/internal/safemath",
+          "golang.org/x/image/bmp",
+          "golang.org/x/image/riff",
+          "golang.org/x/image/vp8",
+          "golang.org/x/image/vp8l",
+          "golang.org/x/image/webp"
+        ]
+      },
+      "standard_library_vendored_packages": [
+        "vendor/golang.org/x/net/dns/dnsmessage",
+        "vendor/golang.org/x/crypto/cryptobyte/asn1",
+        "vendor/golang.org/x/crypto/cryptobyte",
+        "vendor/golang.org/x/crypto/internal/alias",
+        "vendor/golang.org/x/crypto/chacha20",
+        "vendor/golang.org/x/crypto/internal/poly1305",
+        "vendor/golang.org/x/sys/cpu",
+        "vendor/golang.org/x/crypto/chacha20poly1305",
+        "vendor/golang.org/x/text/transform",
+        "vendor/golang.org/x/text/unicode/bidi",
+        "vendor/golang.org/x/text/secure/bidirule",
+        "vendor/golang.org/x/text/unicode/norm",
+        "vendor/golang.org/x/net/idna",
+        "vendor/golang.org/x/net/http/httpguts",
+        "vendor/golang.org/x/net/http/httpproxy",
+        "vendor/golang.org/x/net/http2/hpack"
+      ],
+      "embedded_files": [
+        {
+          "package": "github.com/egoist/mygo/internal/bridge",
+          "files": [
+            "bridge.js"
+          ]
+        },
+        {
+          "package": "github.com/egoist/mygo/internal/l10n",
+          "files": [
+            "en.json",
+            "messages/en.json"
+          ]
+        },
+        {
+          "package": "github.com/egoist/mygo/internal/gpu/gl",
+          "files": [
+            "effect.glsl",
+            "shader.glsl"
+          ]
+        },
+        {
+          "package": "jinx-desktop/assets",
+          "files": [
+            "jinx-logo.png"
+          ]
+        }
+      ],
+      "errors": []
+    },
+    {
+      "context": "desktop windows/amd64 CGO_ENABLED=0; isolated temporary -modfile copy, -mod=mod, all module access offline",
+      "toolchain": "go1.27.3",
+      "complete": true,
+      "external_packages": {
+        "github.com/egoist/mygo@v0.10.0": [
+          "github.com/egoist/mygo/internal/i18nlink",
+          "github.com/egoist/mygo/i18n",
+          "github.com/egoist/mygo/internal/accelerator",
+          "github.com/egoist/mygo/transfer",
+          "github.com/egoist/mygo/internal/platform",
+          "github.com/egoist/mygo/internal/bridge",
+          "github.com/egoist/mygo/internal/keepstate",
+          "github.com/egoist/mygo/internal/l10n",
+          "github.com/egoist/mygo/internal/schemehost",
+          "github.com/egoist/mygo/internal/surface",
+          "github.com/egoist/mygo/internal/tsgen",
+          "github.com/egoist/mygo/internal/update",
+          "github.com/egoist/mygo/internal/contentrules",
+          "github.com/egoist/mygo/internal/gpu/d3d11/device",
+          "github.com/egoist/mygo/internal/menuicon",
+          "github.com/egoist/mygo/internal/schemestream",
+          "github.com/egoist/mygo/internal/watchdriver",
+          "github.com/egoist/mygo/internal/webview2",
+          "github.com/egoist/mygo/internal/windows",
+          "github.com/egoist/mygo/netproxy",
+          "github.com/egoist/mygo",
+          "github.com/egoist/mygo/internal/gamut",
+          "github.com/egoist/mygo/internal/scene",
+          "github.com/egoist/mygo/internal/raster",
+          "github.com/egoist/mygo/internal/gpu",
+          "github.com/egoist/mygo/internal/pacing",
+          "github.com/egoist/mygo/internal/gpu/d3d11",
+          "github.com/egoist/mygo/internal/imagesrc",
+          "github.com/egoist/mygo/internal/media",
+          "github.com/egoist/mygo/internal/rope",
+          "github.com/egoist/mygo/internal/vec",
+          "github.com/egoist/mygo/internal/svg",
+          "github.com/egoist/mygo/internal/text",
+          "github.com/egoist/mygo/internal/viewhost",
+          "github.com/egoist/mygo/ui"
+        ],
+        "golang.org/x/text@v0.43.0": [
+          "golang.org/x/text/internal/tag",
+          "golang.org/x/text/internal/language",
+          "golang.org/x/text/internal/language/compact",
+          "golang.org/x/text/language",
+          "golang.org/x/text/transform",
+          "golang.org/x/text/width"
+        ],
+        "github.com/ebitengine/purego@v0.11.1": [
+          "github.com/ebitengine/purego/internal/strings",
+          "github.com/ebitengine/purego"
+        ],
+        "golang.org/x/net@v0.59.0": [
+          "golang.org/x/net/publicsuffix"
+        ],
+        "github.com/go-text/typesetting@v0.3.5": [
+          "github.com/go-text/typesetting/language",
+          "github.com/go-text/typesetting/internal/unicodedata",
+          "github.com/go-text/typesetting/segmenter"
+        ],
+        "golang.org/x/image@v0.46.0": [
+          "golang.org/x/image/internal/safemath",
+          "golang.org/x/image/bmp",
+          "golang.org/x/image/riff",
+          "golang.org/x/image/vp8",
+          "golang.org/x/image/vp8l",
+          "golang.org/x/image/webp"
+        ]
+      },
+      "standard_library_vendored_packages": [
+        "vendor/golang.org/x/net/dns/dnsmessage",
+        "vendor/golang.org/x/crypto/cryptobyte/asn1",
+        "vendor/golang.org/x/crypto/cryptobyte",
+        "vendor/golang.org/x/crypto/internal/alias",
+        "vendor/golang.org/x/crypto/chacha20",
+        "vendor/golang.org/x/crypto/internal/poly1305",
+        "vendor/golang.org/x/sys/cpu",
+        "vendor/golang.org/x/crypto/chacha20poly1305",
+        "vendor/golang.org/x/text/transform",
+        "vendor/golang.org/x/text/unicode/bidi",
+        "vendor/golang.org/x/text/secure/bidirule",
+        "vendor/golang.org/x/text/unicode/norm",
+        "vendor/golang.org/x/net/idna",
+        "vendor/golang.org/x/net/http/httpguts",
+        "vendor/golang.org/x/net/http/httpproxy",
+        "vendor/golang.org/x/net/http2/hpack"
+      ],
+      "embedded_files": [
+        {
+          "package": "github.com/egoist/mygo/internal/bridge",
+          "files": [
+            "bridge.js"
+          ]
+        },
+        {
+          "package": "github.com/egoist/mygo/internal/l10n",
+          "files": [
+            "en.json",
+            "messages/en.json"
+          ]
+        },
+        {
+          "package": "golang.org/x/net/publicsuffix",
+          "files": [
+            "data/children",
+            "data/nodes",
+            "data/text"
+          ]
+        },
+        {
+          "package": "github.com/egoist/mygo/internal/windows",
+          "files": [
+            "keys.js"
+          ]
+        },
+        {
+          "package": "github.com/egoist/mygo/internal/gpu/d3d11",
+          "files": [
+            "classes.hlsl",
+            "effect.hlsl",
+            "shader.hlsl"
+          ]
+        },
+        {
+          "package": "jinx-desktop/assets",
+          "files": [
+            "jinx-logo.png"
+          ]
+        }
+      ],
+      "errors": []
+    }
+  ],
+  "scope_notes": [
+    "No modules downloaded; GOWORK=off GOPROXY=off GOSUMDB=off GOTOOLCHAIN=local. Neither go.mod nor go.sum was changed.",
+    "Windows was fully enumerated using copies of desktop/go.mod and desktop/go.sum in a temporary directory with -modfile and -mod=mod; the existing module cache supplied x/net@v0.59.0 without network access. The repository module files were not changed.",
+    "MyGo Ebitengine shader compiler and typesetting/harfbuzz texts are retained as separately licensed subcomponents of the exact modules; neither package appears in the successful dependency scans.",
+    "No embedded font or gofont package appears in the successful application or project-test dependency scans. Unused module test fonts are not copied.",
+    "MingCute source is attributed by mygo@v0.10.0/ui/combobox.go:490-492 without an upstream version; the official license snapshot commit is recorded without asserting the copied icon originated at that commit.",
+    "Lucide 0.468.0 LICENSE identifies Feather-derived portions as MIT; supplemental Feather v4.29.2 MIT LICENSE is preserved verbatim, including its own copyright years."
+  ],
+  "generated_notice_indexes": [
+    {
+      "file": "third_party/purego/SOURCE_NOTICES.txt",
+      "sha256": "60a1cdbc91b1057e21818bfe70a320fad96b25db62c258d57fc3ca08ff57e106",
+      "source": "${GOMODCACHE}/github.com/ebitengine/purego@v0.11.1/",
+      "description": "Verbatim copyright and inline attribution lines; filenames retain the original module-relative paths."
+    },
+    {
+      "file": "third_party/mygo/SOURCE_NOTICES.txt",
+      "sha256": "4a89372e2f811e2cc0e020e3218a33a55fecadcd91f8ce230764247b65ea7b1f",
+      "source": "${GOMODCACHE}/github.com/egoist/mygo@v0.10.0/",
+      "description": "Verbatim copyright and inline attribution lines; filenames retain the original module-relative paths."
+    }
+  ]
+}

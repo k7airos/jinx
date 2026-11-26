@@ -1,0 +1,24 @@
+[
+  {
+    "synthetic": true,
+    "fixture_date": "2026-01-01",
+    "run_id": "synthetic-windows-layout",
+    "message": {
+      "id": "synthetic-windows-layout-question",
+      "sender_name": "ExamplePeer",
+      "content": "@DemoBot Windows 11 的虚构 DemoDesk 中，纸飞机面板如何切换排列？"
+    },
+    "summary": "ExamplePeer，Windows 示例的面板布局步骤目前无法确认。请补充示例版本号和界面描述，我再核对适用于该平台的操作"
+  },
+  {
+    "synthetic": true,
+    "fixture_date": "2026-01-01",
+    "run_id": "synthetic-windows-collection-limit",
+    "message": {
+      "id": "synthetic-windows-limit-question",
+      "sender_name": "ExamplePeer",
+      "content": "@DemoBot Windows 11 上，虚构 DemoDesk 的纸飞机收藏最多放多少张？"
+    },
+    "summary": "ExamplePeer，Windows 示例的收藏数量上限目前无法确认。请补充示例版本号；现有说明不足以给出该平台的具体数值"
+  }
+]

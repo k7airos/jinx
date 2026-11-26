@@ -1,0 +1,38 @@
+{
+  "version": 1,
+  "communication_mode": "append",
+  "identities": {
+    "300@chatroom": {
+      "profile": "demo-support",
+      "memory_user": "demo-support-memory",
+      "vector_collection": "demo-support-vectors"
+    }
+  },
+  "support": {
+    "enabled": false,
+    "group_id": "300@chatroom",
+    "self_sender_ids": ["demo-self"],
+    "instructions_mode": "append",
+    "knowledge_files": [],
+    "document_files": [],
+    "release_files": [],
+    "code_fact_rules": [],
+    "reminders": {
+      "enabled": false
+    }
+  },
+  "scenarios": {
+    "demo-comment": {
+      "prompt_mode": "append",
+      "skills": ["demo-skill"],
+      "tools": ["web_search"],
+      "max_reply_runes": 180
+    }
+  },
+  "knowledge_bases": {
+    "demo-kb": {
+      "files": ["/synthetic/demo-knowledge.md"],
+      "max_bytes": 32768
+    }
+  }
+}
