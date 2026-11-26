@@ -107,6 +107,9 @@ type batch struct {
 	Mentioned             bool
 	Direct                bool
 	DirectTargetContentID string
+	// ReplyTargetIndex is the 1-based pending message the model chose with
+	// REPLY_TO on threaded platforms; 0 means not selected.
+	ReplyTargetIndex int
 }
 
 func policyID(cfg Config) string {
@@ -676,6 +679,16 @@ func (d *Dispatcher) processBatch(b batch) bool {
 	_ = d.saveStateLocked()
 	d.mu.Unlock()
 	reply := strings.TrimSpace(result.Text)
+	selectTarget := usesReplyTargetSelection(b)
+	var targetRef int
+	var targetDirective bool
+	if selectTarget {
+		targetRef, reply, targetDirective = splitReplyTarget(reply)
+		if targetDirective && targetRef == 0 {
+			d.audit(b, "invalid_reply", "REPLY_TO 格式无效")
+			return d.traceTerminal(b, contracts.OutcomeBlocked, reasonReplyTargetInvalid)
+		}
+	}
 	if p, _, ok := contracts.ParseContainerID(b.Rule.TargetGroupID); !ok || p == contracts.PlatformWeChat {
 		reply = strings.TrimRight(reply, "。\n\r\t ")
 	} else {
@@ -697,6 +710,14 @@ func (d *Dispatcher) processBatch(b batch) bool {
 		}
 		d.audit(b, "none", "")
 		return d.traceTerminal(b, contracts.OutcomeSilent, "output_none")
+	}
+	if selectTarget {
+		index, reason := resolveReplyTarget(targetRef, targetDirective, len(b.Messages))
+		if reason != "" {
+			d.audit(b, "invalid_reply", fmt.Sprintf("回复目标无效 (REPLY_TO=%d, 待处理消息数 %d)", targetRef, len(b.Messages)))
+			return d.traceTerminal(b, contracts.OutcomeBlocked, reason)
+		}
+		b.ReplyTargetIndex = index
 	}
 	maxRunes := b.Rule.MaxReplyRunes
 	if utf8.RuneCountInString(reply) > maxRunes {
@@ -862,12 +883,16 @@ func buildPrompt(b batch) string {
 		history = append([]RelayMessage{m}, history...)
 	}
 	// JSON escapes quotes, newlines, and angle brackets in every untrusted field, including names.
+	var pending any = b.Messages
+	if usesReplyTargetSelection(b) {
+		pending = promptPendingMessages(b.Messages)
+	}
 	data, _ := json.Marshal(struct {
 		GroupID  string         `json:"group_id"`
 		History  []RelayMessage `json:"history"`
 		Recalled []RelayMessage `json:"earlier_today_related,omitempty"`
-		Pending  []RelayMessage `json:"pending_messages"`
-	}{b.GroupID, history, b.Recalled, b.Messages})
+		Pending  any            `json:"pending_messages"`
+	}{b.GroupID, history, b.Recalled, pending})
 	var extra string
 	if len(b.Recalled) > 0 {
 		extra += "earlier_today_related 是今天更早、按关键词检索到的相关旧消息，只作背景，不是新消息。"
@@ -906,6 +931,9 @@ func buildPrompt(b batch) string {
 			lengthRule = "按问题需要给出充分且简明的答复，"
 		}
 		styleRule = "保持自然、完整的中文标点，直接面向当前评论或帖子作者回复，不暴露内部自动化或群聊语境。"
+		if usesReplyTargetSelection(b) {
+			styleRule += replyTargetInstruction(len(b.Messages))
+		}
 	}
 	if b.Rule.SupportMode {
 		extra += supportContext(b) + b.SupportProgress

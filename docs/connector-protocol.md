@@ -13,7 +13,7 @@
 | 字段 | 类型 | 说明 |
 | --- | --- | --- |
 | `source` | `string` | 来源标识，如 `bilibili:ego`、`web:<adapter>` 或空/微信默认值 |
-| `platform` | `string` | 标准平台名：`wechat`、`bilibili`、`web`（省略时从 `source` 推导） |
+| `platform` | `string` | 平台名：`wechat`，或任意命名空间平台（见 §1.1，如 `bilibili`、`web`、`zhihu`）；省略时从 `source` 推导 |
 | `account_id` | `string` | 发送或监听账号标识（需满足契约 ID 字符约束） |
 | `group_id` / `container_id` | `string` | 容器标识，格式如 `bilibili:BV1example0001`、`web:demo-thread` 或 `<digits>@chatroom` |
 | `parent_id` | `string` | 回复父节点 ID（顶层评论为空） |
@@ -23,11 +23,34 @@
 
 Relay 保留 `containerId` / `container_id` 作为 `group_id` 的兼容别名，并在外层包裹 `{"message": {...}}` 结构时自动向下继承上述外层元数据。
 
+### 1.1 平台命名与接入新论坛
+
+平台列表不是写死的枚举。除 `wechat`（使用 `<digits>@chatroom` 容器格式）外，任何满足 `^[a-z][a-z0-9-]{1,31}$`、且不是 `http`/`https`/`ws`/`wss`/`file` 的名字都是合法平台，容器 ID 写作 `<platform>:<local>`（如 `zhihu:question-123`），`source` 写作 `<platform>` 或 `<platform>:<adapter>`。`bilibili`、`web` 只是内置示例。
+
+**语法合法 ≠ 已接入。** 平台真正可用仍取决于显式配置：Dispatcher 的 `action_endpoints.<platform>`、control-plane 的 `-connector <platform>=<origin>`，以及该连接器 `/health` 声明的 `platform` 与 `capabilities`。未配置的平台消息可以进入 Relay，但不会产生任何外部动作。
+
+接入一个新论坛（例如知乎）不需要改公开核心代码，只需要：
+
+1. **写连接器**（独立进程）：用 `internal/connector.NewServer` 获得 `/health`、`/v1/control/dry-run`、`/v1/actions`、幂等账本与过期校验；只实现采集与回复的平台细节（参考 `internal/connector/bilibili` 的 `Driver` 接口）。
+2. **采集时填好回复坐标**：每条评论推到 Relay 时，`id` 填评论自身 ID，`parent_id` / `root_id` 填楼中楼关系，回复该评论所需的平台私有参数全部放进 `reply_context`（≤ 8 KiB JSON）。Relay 与 Dispatcher 只校验其为合法 JSON 并原样透传，只有同平台连接器解析它；AI 既看不到也改不了实际投递用的 `reply_context`。
+3. **配置路由**：Relay `group_control` 与 Dispatcher `group_whitelist` / `group_rules` 加入 `zhihu:*` 容器；Dispatcher 配置 `action_endpoints.zhihu`；control-plane 加 `-connector zhihu=http://127.0.0.1:<port>`。
+4. **先 `dry_run: true` 演练**，在控制台核对草稿后再经两步确认关闭 dry-run。
+
+### 1.2 多条评论时选择回复目标（`REPLY_TO`）
+
+非微信平台一个批次可能聚合多条评论。Dispatcher 在提示词的 `pending_messages` 中给每条评论一个批内编号 `ref`（1..N），模型若决定回复，第一行写 `REPLY_TO: <ref>`，其后为回复正文（也接受同一行 `REPLY_TO: 2 正文`）。
+
+- Dispatcher 用 `ref` 取回**自己已保存**的那条消息，其 `content_id` / `parent_id` / `root_id` / `reply_context` 作为动作目标；模型输出中的任何平台 ID 都不会被采信。
+- 批次只有 1 条时可省略 `REPLY_TO`。
+- 多条却缺少 `REPLY_TO` → `blocked / reply_target_missing`；编号越界、写成平台 ID 或格式错误 → `blocked / reply_target_invalid`。两者都**不发送**，不会回退到"最后一条"。
+- 一个批次最多回复一条；`REPLY_TO: <ref>` 后接 `NONE` 等同静默。
+- 微信路径（整群回复，无内容级目标）不受影响，提示词也不变。
+
 ---
 
 ## 2. Connector HTTP Action Protocol v1
 
-Dispatcher 通过 `action_endpoints.<platform>` 配置连接非微信平台的动作连接器（当前支持 `"bilibili"` 与 `"web"`）。连接器必须仅监听本机回环地址，并拒绝非回环 `Host`、`Sec-Fetch-Site: cross-site` 或跨源 `Origin`。
+Dispatcher 通过 `action_endpoints.<platform>` 配置连接非微信平台的动作连接器（键为任意命名空间平台名，见 §1.1）。连接器必须仅监听本机回环地址，并拒绝非回环 `Host`、`Sec-Fetch-Site: cross-site` 或跨源 `Origin`。
 
 ### 2.1 `GET /health`
 
@@ -77,7 +100,7 @@ Dispatcher 通过 `action_endpoints.<platform>` 配置连接非微信平台的�
 
 - 按 `request_id` 提供幂等重放；同一 `request_id` 对应不同 `dry_run` 目标返回 HTTP `409 idempotency_conflict`。
 - 默认仅修改运行期内存状态（重启连接器后恢复启动配置），除非宿主注入 `OnDryRunChange` 并返回 `persisted: true`。
-- 在控制台 (`cmd/control-plane`) 中，可通过 `-bilibili-connector` / `-web-connector` 接入该连接器，并经由两步确认接口 `/console/v1/connectors/{platform}/dry-run/plan` -> 显式确认后 `/apply` -> 强制 `/health` 回读校验来安全切换。
+- 在控制台 (`cmd/control-plane`) 中，可通过 `-bilibili-connector` / `-web-connector`，或可重复的 `-connector <platform>=<origin>` 接入该连接器，并经由两步确认接口 `/console/v1/connectors/{platform}/dry-run/plan` -> 显式确认后 `/apply` -> 强制 `/health` 回读校验来安全切换。
 
 ### 2.3 `POST /v1/actions`
 

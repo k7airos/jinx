@@ -205,7 +205,7 @@ func TestPublicSupportsMultiPlatformContainerIDs(t *testing.T) {
 	if after.GroupControl.GroupAliases["web:v2ex:topic-42"] != "Web Forum Topic" {
 		t.Fatalf("alias lost: %+v", after.GroupControl.GroupAliases)
 	}
-	for _, invalid := range []string{"bilibili:../bad", "unknown:123", "bad@@chatroom"} {
+	for _, invalid := range []string{"bilibili:../bad", "Unknown:123", "bad@@chatroom"} {
 		bad := publicValue(after)
 		bad.GroupControl.MonitoredGroups = []string{invalid}
 		if _, err := manager.CompareAndSwap(after.Revision, bad); !errors.Is(err, ErrInvalidPublic) {

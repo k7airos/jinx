@@ -84,12 +84,10 @@ type savedConnectorPlan struct {
 }
 
 func connectorServiceID(platform contracts.Platform) (string, error) {
-	switch platform {
-	case contracts.PlatformBilibili, contracts.PlatformWeb:
-		return "connector:" + string(platform), nil
-	default:
-		return "", failure("validation", "Connector platform must be bilibili or web")
+	if !contracts.IsNamespacedPlatform(platform) {
+		return "", failure("validation", "Connector platform must be a lowercase namespaced platform name")
 	}
+	return "connector:" + string(platform), nil
 }
 
 func cleanTargetLabel(raw string) *string {
@@ -232,9 +230,10 @@ func (facade *Facade) probeConnector(ctx context.Context, platform contracts.Pla
 }
 
 func (facade *Facade) ListConnectors(ctx context.Context) Envelope {
-	items := make([]ConnectorView, 0, 2)
+	platforms := facade.listedConnectorPlatforms()
+	items := make([]ConnectorView, 0, len(platforms))
 	freshness := "fresh"
-	for _, platform := range []contracts.Platform{contracts.PlatformBilibili, contracts.PlatformWeb} {
+	for _, platform := range platforms {
 		view := facade.probeConnector(ctx, platform)
 		if view.Configured && view.State == "unreachable" {
 			freshness = "unknown"
@@ -451,4 +450,16 @@ func (facade *Facade) ApplyConnectorDryRun(ctx context.Context, platform contrac
 	}
 
 	return ConnectorDryRunApplyResult{}, failure("unknown", "Connector dry_run update outcome or readback is unverified; inspect connector health before planning again")
+}
+
+// listedConnectorPlatforms keeps the built-in bilibili/web entries (reported as
+// unconfigured when absent) and appends every other configured platform.
+func (facade *Facade) listedConnectorPlatforms() []contracts.Platform {
+	platforms := []contracts.Platform{contracts.PlatformBilibili, contracts.PlatformWeb}
+	for _, platform := range facade.backend.connectorPlatforms() {
+		if platform != contracts.PlatformBilibili && platform != contracts.PlatformWeb {
+			platforms = append(platforms, platform)
+		}
+	}
+	return platforms
 }

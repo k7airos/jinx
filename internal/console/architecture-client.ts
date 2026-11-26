@@ -15,8 +15,11 @@ function identity(value: unknown, optional = false): value is string {
   return typeof value === 'string' && ((optional && value === '') || /^[A-Za-z0-9][A-Za-z0-9_.:@+-]{0,255}$/.test(value));
 }
 
+const reservedPlatforms = new Set(['wechat', 'http', 'https', 'ws', 'wss', 'file']);
+
 function platform(value: unknown): boolean {
-  return value === 'wechat' || value === 'bilibili' || value === 'web';
+  if (value === 'wechat') return true;
+  return typeof value === 'string' && /^[a-z][a-z0-9-]{1,31}$/.test(value) && !reservedPlatforms.has(value);
 }
 
 function sourceReference(value: unknown): boolean {

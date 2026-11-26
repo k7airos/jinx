@@ -65,7 +65,7 @@ func TestRunOptionalMetadataAndLegacyJSON(t *testing.T) {
 	}
 	for name, change := range map[string]func(*Run){
 		"wrong_container":  func(value *Run) { value.Inputs[0].Source.ContainerID = "other-group" },
-		"unknown_platform": func(value *Run) { value.Inputs[0].Source.Platform = "unknown" },
+		"unknown_platform": func(value *Run) { value.Inputs[0].Source.Platform = "Unknown" },
 		"unknown_content":  func(value *Run) { value.Inputs[0].Source.ContentID = "other-message" },
 		"missing_envelope": func(value *Run) { value.Inputs[0].EnvelopeID = "" },
 		"unsafe_dedup":     func(value *Run) { value.Inputs[0].DedupKey = "/private/db" },

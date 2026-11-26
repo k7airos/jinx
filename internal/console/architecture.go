@@ -120,7 +120,7 @@ func (facade *Facade) Architecture(ctx context.Context) ArchitectureSnapshot {
 	for _, service := range facade.Services(ctx).Data.([]ServiceView) {
 		health[service.ID] = service
 	}
-	for _, platform := range []contracts.Platform{contracts.PlatformWeChat, contracts.PlatformBilibili, contracts.PlatformWeb} {
+	for _, platform := range append([]contracts.Platform{contracts.PlatformWeChat}, facade.listedConnectorPlatforms()...) {
 		source := SourceView{Platform: platform, State: "unsupported", Availability: hostAvailability(false, ""), Capabilities: []ArchitectureCapability{missingArchitectureCapability("ingest"), missingArchitectureCapability("adapter_contract")}}
 		var probed *ConnectorView
 		if platform == contracts.PlatformWeChat {

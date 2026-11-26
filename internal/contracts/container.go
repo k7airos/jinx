@@ -25,7 +25,7 @@ func ParseContainerID(id string) (Platform, string, bool) {
 		return "", "", false
 	}
 	platform := Platform(prefix)
-	if platform != PlatformBilibili && platform != PlatformWeb {
+	if !IsNamespacedPlatform(platform) {
 		return "", "", false
 	}
 	if !namespacedContainerLocalPattern.MatchString(local) || strings.Contains(local, "..") {

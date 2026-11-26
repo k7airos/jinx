@@ -53,6 +53,15 @@ func TestSettingsRequireIsolatedStateAndExplicitControl(testing *testing.T) {
 	if err != nil || withConnectors.bilibiliConnector != "http://127.0.0.1:18092" || withConnectors.webConnector != "http://127.0.0.1:18093" {
 		testing.Fatalf("failed parsing connector flags: %+v %v", withConnectors, err)
 	}
+	forums, err := parseSettings(append(append([]string{}, arguments...), "-connector", "zhihu=http://127.0.0.1:18095", "-connector", "v2ex=http://127.0.0.1:18096"), io.Discard)
+	if err != nil || forums.connectors["zhihu"] != "http://127.0.0.1:18095" || forums.connectors["v2ex"] != "http://127.0.0.1:18096" {
+		testing.Fatalf("repeatable -connector not parsed: %+v %v", forums.connectors, err)
+	}
+	for _, bad := range [][]string{{"-connector", "zhihu"}, {"-connector", "=http://127.0.0.1:1"}, {"-connector", "zhihu=http://127.0.0.1:1", "-connector", "zhihu=http://127.0.0.1:2"}} {
+		if _, err := parseSettings(append(append([]string{}, arguments...), bad...), io.Discard); err == nil {
+			testing.Fatalf("invalid -connector accepted: %v", bad)
+		}
+	}
 }
 
 func TestBackendDefinitionsUseSharedSchema(test *testing.T) {

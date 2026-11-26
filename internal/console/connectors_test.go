@@ -436,3 +436,58 @@ func TestConfirmedConnectorDryRunPlanApplyAndConflictGuards(t *testing.T) {
 		t.Fatalf("expected 202 unknown on readback mismatch, got %d %s", ambigApplyRec.Code, ambigApplyRec.Body.String())
 	}
 }
+
+func TestOperatorAddedConnectorPlatform(t *testing.T) {
+	store, err := connector.OpenIdempotencyStore(filepath.Join(t.TempDir(), "idem.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	exec := &stubConnectorExecutor{
+		platform:  "zhihu",
+		accountID: "zhihu-demo",
+		name:      "zhihu-demo-connector",
+		caps:      []contracts.ActionKind{contracts.ActionThreadReply},
+		ready:     true,
+		targets:   []connector.HealthTarget{{ContainerID: "zhihu:question-1", Label: "Demo Question", Enabled: true}},
+	}
+	zhihuHTTP := httptest.NewServer(connector.NewServer(connector.ServerOptions{Executor: exec, Store: store, DryRun: true}).Handler())
+	defer zhihuHTTP.Close()
+	dispatcher := httptest.NewServer(http.NotFoundHandler())
+	defer dispatcher.Close()
+
+	for name, options := range map[string]Options{
+		"invalid name": {Connectors: map[string]string{"Zhihu": zhihuHTTP.URL}},
+		"wechat":       {Connectors: map[string]string{"wechat": zhihuHTTP.URL}},
+		"duplicate":    {BilibiliConnectorURL: zhihuHTTP.URL, Connectors: map[string]string{"bilibili": zhihuHTTP.URL}},
+	} {
+		options.DispatcherURL, options.StateDir = dispatcher.URL, t.TempDir()
+		if _, err := New(options); err == nil {
+			t.Fatalf("%s: connector option accepted", name)
+		}
+	}
+
+	facade, err := New(Options{DispatcherURL: dispatcher.URL, StateDir: t.TempDir(), Timeout: time.Second, Connectors: map[string]string{"zhihu": zhihuHTTP.URL}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer facade.Close()
+	if got := facade.listedConnectorPlatforms(); len(got) != 3 || got[2] != "zhihu" {
+		t.Fatalf("listed platforms = %v", got)
+	}
+	view := facade.probeConnector(context.Background(), "zhihu")
+	if !view.Configured || view.State != "ready" || view.AccountID == nil || *view.AccountID != "zhihu-demo" || len(view.Targets) != 1 || view.Targets[0].ContainerID != "zhihu:question-1" {
+		t.Fatalf("zhihu connector view = %+v", view)
+	}
+	found := false
+	for _, source := range facade.Architecture(context.Background()).Sources {
+		if source.Platform == "zhihu" {
+			found = source.State == "ready"
+		}
+	}
+	if !found {
+		t.Fatal("architecture did not project the operator-added platform")
+	}
+	if rec := consolePost(facade, "connectors/zhihu/dry-run/plan", map[string]any{"requestId": "req-zhihu-1", "expectedDryRun": true, "targetDryRun": false}); rec.Code != http.StatusOK {
+		t.Fatalf("dry-run plan rejected a configured operator platform: %s", rec.Body.String())
+	}
+}

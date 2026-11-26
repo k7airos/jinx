@@ -29,13 +29,15 @@ func TestRelayMappingSourceAllowlist(t *testing.T) {
 		{"web", contracts.PlatformWeb},
 		{"web:ego", contracts.PlatformWeb},
 		{"web:forum_reader", contracts.PlatformWeb},
+		{"zhihu", "zhihu"},
+		{"v2ex:poller", "v2ex"},
 	} {
 		platform, err := relayPlatform(tc.source)
 		if err != nil || platform != tc.want {
 			t.Fatalf("known source %q: %q %v", tc.source, platform, err)
 		}
 	}
-	for _, source := range []string{"unknown", " wechat", "message/../message_0.db", "/message/message_0.db", "message/message_0.db/extra", "bilibili:", "bilibili:../bad", "web:/bad", "bilibili:bad space"} {
+	for _, source := range []string{"Unknown", "http:x", "zh_hu:poller", " wechat", "message/../message_0.db", "/message/message_0.db", "message/message_0.db/extra", "bilibili:", "bilibili:../bad", "web:/bad", "bilibili:bad space"} {
 		if _, err := relayPlatform(source); err == nil {
 			t.Fatalf("unsupported source %q accepted", source)
 		}

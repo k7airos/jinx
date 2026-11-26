@@ -53,6 +53,7 @@ func assemble(config settings) (http.Handler, func(), error) {
 		BridgeURL:            config.bridge,
 		BilibiliConnectorURL: config.bilibiliConnector,
 		WebConnectorURL:      config.webConnector,
+		Connectors:           config.connectors,
 		StateDir:             filepath.Join(config.stateDir, "console"),
 		ExecutionCatalog:     engine,
 	})

@@ -16,7 +16,7 @@ func TestInboundArchitectureValidation(t *testing.T) {
 		t.Fatal(err)
 	}
 	for name, mutate := range map[string]func(*InboundEnvelope){
-		"platform":         func(value *InboundEnvelope) { value.Source.Platform = "unknown" },
+		"platform":         func(value *InboundEnvelope) { value.Source.Platform = "Unknown" },
 		"identity":         func(value *InboundEnvelope) { value.EnvelopeID = "/private/secret" },
 		"content identity": func(value *InboundEnvelope) { value.Source.ContentID = "" },
 		"timestamp":        func(value *InboundEnvelope) { value.ReceivedAt = time.Time{} },

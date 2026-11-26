@@ -25,17 +25,15 @@ func relayPlatform(source string) (contracts.Platform, error) {
 	if source == "" || source == string(contracts.PlatformWeChat) || wechatRelayShard.MatchString(source) {
 		return contracts.PlatformWeChat, nil
 	}
-	if source == string(contracts.PlatformBilibili) || strings.HasPrefix(source, string(contracts.PlatformBilibili)+":") {
-		if suffix, ok := strings.CutPrefix(source, string(contracts.PlatformBilibili)+":"); !ok || (relaySourceSuffixPattern.MatchString(suffix) && !strings.Contains(suffix, "..")) {
-			return contracts.PlatformBilibili, nil
-		}
+	prefix, suffix, hasSuffix := strings.Cut(source, ":")
+	platform := contracts.Platform(prefix)
+	if !contracts.IsNamespacedPlatform(platform) {
+		return "", fmt.Errorf("unsupported relay source")
 	}
-	if source == string(contracts.PlatformWeb) || strings.HasPrefix(source, string(contracts.PlatformWeb)+":") {
-		if suffix, ok := strings.CutPrefix(source, string(contracts.PlatformWeb)+":"); !ok || (relaySourceSuffixPattern.MatchString(suffix) && !strings.Contains(suffix, "..")) {
-			return contracts.PlatformWeb, nil
-		}
+	if hasSuffix && (!relaySourceSuffixPattern.MatchString(suffix) || strings.Contains(suffix, "..")) {
+		return "", fmt.Errorf("unsupported relay source")
 	}
-	return "", fmt.Errorf("unsupported relay source")
+	return platform, nil
 }
 
 func validateRelayMapping(msg RelayMessage) error {
@@ -88,14 +86,10 @@ func mappingIdentity(value string) bool {
 }
 
 func defaultMappingAccount(platform contracts.Platform) string {
-	switch platform {
-	case contracts.PlatformBilibili:
-		return "bilibili-connector"
-	case contracts.PlatformWeb:
-		return "web-connector"
-	default:
-		return wechatMappingAccount
+	if contracts.IsNamespacedPlatform(platform) {
+		return string(platform) + "-connector"
 	}
+	return wechatMappingAccount
 }
 
 func relayDedupKey(msg RelayMessage) string {
@@ -212,6 +206,14 @@ func ActionTargetForBatch(b batch) (contracts.SourceRef, contracts.ActionKind, j
 		return contracts.SourceRef{}, "", nil, fmt.Errorf("batch has no messages for target selection")
 	}
 	targetMsg := b.Messages[len(b.Messages)-1]
+	if b.ReplyTargetIndex != 0 {
+		if b.ReplyTargetIndex < 0 || b.ReplyTargetIndex > len(b.Messages) {
+			return contracts.SourceRef{}, "", nil, fmt.Errorf("reply target index outside batch")
+		}
+		targetMsg = b.Messages[b.ReplyTargetIndex-1]
+	} else if len(b.Messages) > 1 && !b.Direct {
+		return contracts.SourceRef{}, "", nil, fmt.Errorf("multi-message batch has no selected reply target")
+	}
 	accountID := targetMsg.AccountID
 	if accountID == "" {
 		accountID = defaultMappingAccount(platform)

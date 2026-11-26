@@ -8,8 +8,11 @@ import (
 	"net"
 	"net/http"
 	"net/url"
+	"sort"
 	"strings"
 	"time"
+
+	"jinx/internal/contracts"
 )
 
 const maxBody = 256 << 10
@@ -21,6 +24,11 @@ type Options struct {
 	BridgeURL            string
 	BilibiliConnectorURL string
 	WebConnectorURL      string
+	// Connectors maps additional namespaced platforms (e.g. "zhihu") to their
+	// Action Connector loopback origins. BilibiliConnectorURL/WebConnectorURL
+	// remain as aliases for "bilibili" and "web"; a platform set in both places
+	// is rejected.
+	Connectors map[string]string
 	StateDir             string
 	Timeout              time.Duration
 	ConfigurationReader  ConfigurationReader
@@ -51,14 +59,24 @@ func newUpstream(options Options) (*upstream, error) {
 	traceTransport := transport.Clone()
 	traceTransport.ResponseHeaderTimeout = 25 * time.Second
 	backend.traceClient = &http.Client{Timeout: 25 * time.Second, Transport: traceTransport, CheckRedirect: backend.client.CheckRedirect}
-	for id, raw := range map[string]string{
+	origins := map[string]string{
 		"dispatcher":         options.DispatcherURL,
 		"relay":              options.RelayURL,
 		"decision":           options.DecisionURL,
 		"bridge":             options.BridgeURL,
 		"connector:bilibili": options.BilibiliConnectorURL,
 		"connector:web":      options.WebConnectorURL,
-	} {
+	}
+	for platform, raw := range options.Connectors {
+		if !contracts.IsNamespacedPlatform(contracts.Platform(platform)) {
+			return nil, failure("validation", "Connector platform must be a lowercase namespaced platform name")
+		}
+		if origins["connector:"+platform] != "" {
+			return nil, failure("validation", "Connector platform is configured more than once")
+		}
+		origins["connector:"+platform] = raw
+	}
+	for id, raw := range origins {
 		if raw == "" {
 			continue
 		}
@@ -141,4 +159,16 @@ func (backend *upstream) config(ctx context.Context) (snapshot, error) {
 		return snapshot{}, failure("unavailable", "Dispatcher group rules have an invalid shape")
 	}
 	return snapshot{root: root, rules: rules, etag: etag}, nil
+}
+
+// connectorPlatforms lists the platforms with a configured connector origin.
+func (backend *upstream) connectorPlatforms() []contracts.Platform {
+	platforms := []contracts.Platform{}
+	for id := range backend.bases {
+		if platform, ok := strings.CutPrefix(id, "connector:"); ok {
+			platforms = append(platforms, contracts.Platform(platform))
+		}
+	}
+	sort.Slice(platforms, func(i, j int) bool { return platforms[i] < platforms[j] })
+	return platforms
 }

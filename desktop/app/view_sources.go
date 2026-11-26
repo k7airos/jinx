@@ -107,7 +107,7 @@ func (s *Store) renderSourcesView(c *ui.Context, p theme.Palette) {
 		// Platform Connectors & Confirmed dry_run Control (Prominent above the fold)
 		components.CardWithHeader(c, p, "平台连接器与确认式演练开关", "切换实时演练模式（dry_run）需先计划预览并二次勾选确认", nil, func() {
 			if len(s.Connectors) == 0 {
-				ui.Text(c, "当前控制面未配置外部连接器（可通过 -bilibili-connector / -web-connector 参数接入）。").FontSize(12).TextColor(p.TextMuted)
+				ui.Text(c, "当前控制面未配置外部连接器（可通过 -bilibili-connector / -web-connector 或 -connector 平台=地址 参数接入）。").FontSize(12).TextColor(p.TextMuted)
 				return
 			}
 			components.DataList(c, p, func() {

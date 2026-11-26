@@ -46,6 +46,15 @@ kind, target scope, expiry, idempotency and delivery admission before submitting
 and distinguish submitted, confirmed, unknown and proven failed receipts.
 Unknown results require reconciliation, not automatic retry.
 
+Platforms are not a closed enum: any lowercase namespaced name (see
+`contracts.IsNamespacedPlatform`) is syntactically valid, and availability is
+established only by configured connectors. On threaded platforms a batch may
+contain several comments; the model picks one by batch-local `ref`
+(`REPLY_TO: <ref>`) and `ActionTargetForBatch` maps that ref back to the stored
+message. A multi-message batch without a valid ref fails closed
+(`reply_target_missing` / `reply_target_invalid`) instead of defaulting to the
+last message.
+
 Bilibili and Web adapters must implement these boundaries against the shared
 contracts. No collector or sender for either platform is implemented here. A
 platform enum value alone does not establish an installed adapter or capability.

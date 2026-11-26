@@ -41,7 +41,7 @@ go vet ./...
 go build -ldflags=-linkmode=external ./cmd/...
 # 或逐一显式列出全部 7 个入口：
 # go build -ldflags=-linkmode=external ./cmd/relay ./cmd/dispatcher ./cmd/jinx-dispatcher ./cmd/bilibili-connector ./cmd/control-plane ./cmd/console-api ./cmd/backend-adapter
-tsc --strict --noEmit --lib ES2020,DOM internal/console/client-contract.ts internal/console/architecture-client.ts internal/gateway/gateway-contract.ts
+tsc --strict --noEmit --target ES2020 --lib ES2020,DOM internal/console/client-contract.ts internal/console/architecture-client.ts internal/gateway/gateway-contract.ts
 ```
 
 离线执行要求依赖已缓存在本机；缺依赖时不能把未执行记为通过。普通测试使用临时目录、随机 loopback 端口、假模型、fake Bridge 和 fake launchd。多 package build 仅检查编译，不在源码目录写入二进制。

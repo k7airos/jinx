@@ -220,7 +220,7 @@ func (c *Config) normalizeAndValidate() error {
 		}
 	}
 	for key, ep := range c.ActionEndpoints {
-		if key != string(contracts.PlatformBilibili) && key != string(contracts.PlatformWeb) {
+		if !contracts.IsNamespacedPlatform(contracts.Platform(key)) {
 			return fmt.Errorf("unsupported action endpoint platform %q", key)
 		}
 		if err := validateLoopbackOrigin(ep.URL); err != nil {

@@ -13,7 +13,7 @@ JINX 是一个面向多平台消息接入、场景化智能决策与受控动作
 | 1. 信息来源层 (Source Connectors)                                                   |
 |   - 微信本地采集器 (私有模块通过 pkg/relay 扩展接入)                                |
 |   - cmd/bilibili-connector (基于 ego-browser 与游标幂等的 B 站评论/楼中楼轮询)       |
-|   - 通用 Webhook: POST /api/v1/messages (support: wechat / bilibili / web)         |
+|   - 通用 Webhook: POST /api/v1/messages (wechat / bilibili / web / 任意命名空间平台)|
 +-----------------------------------------+-----------------------------------------+
                                           | 标准化入站 / 过滤 / 序列号 SSE
                                           v
@@ -168,7 +168,7 @@ go run -ldflags=-linkmode=external ./cmd/jinx-dispatcher \
 
 - 按 `configs/backends.example.json` 与 `docs/backend-integration.md` 接入可用的模型后端（Alma personal / text_only 或 Hermes）；
 - 在 relay 的 `group_control` 与 dispatcher 的 `group_whitelist` / `group_rules` 中填入容器 ID；
-- 动作出口：微信 Bridge（私有，不在本仓库），或 `cmd/bilibili-connector` 的 HTTP 动作端点（加 `-bilibili-connector` 传给 control-plane）。
+- 动作出口：微信 Bridge（私有，不在本仓库），或 `cmd/bilibili-connector` 的 HTTP 动作端点（加 `-bilibili-connector` 传给 control-plane）。其他论坛按 [docs/connector-protocol.md §1.1](docs/connector-protocol.md) 自行编写连接器并配置，无需修改核心代码。
 
 ### 4. 启动原生桌面控制台 (`desktop/`)
 
@@ -198,7 +198,7 @@ go vet ./...
 go build -ldflags=-linkmode=external ./cmd/...
 
 # 前端类型契约严格校验（需要 TypeScript：npm i -g typescript）
-tsc --strict --noEmit --lib ES2020,DOM \
+tsc --strict --noEmit --target ES2020 --lib ES2020,DOM \
   internal/console/client-contract.ts \
   internal/console/architecture-client.ts \
   internal/gateway/gateway-contract.ts
@@ -236,7 +236,8 @@ python3 scripts/check-public-boundary.py .
 - [x] **Phase 3**：场景策略（7 套内建 + `append`/`replace` 私有注入）、声明式能力挂载与只读知识库/代码事实提取
 - [x] **Phase 4a（控制台对齐）**：将非微信连接器 `/health`、confirmed `dry_run` 开关、`/console/v1/catalog` 逻辑目录及 `/console/v1/architecture` 投影纳入控制面（未持久化的 `source`/`action` SSE 域按真实契约保持 `unsupported`）
 - [x] **Phase 4b（统一桌面前端）**：基于 `docs/target-page-spec.md` 使用 MyGo Native UI 构建跨来源原生桌面控制台 [desktop/](desktop/README.md)（总览、来源与连接器、容器与场景编排、运行追踪、服务维护、变更回滚）
-- [ ] **后续扩展**：Web/论坛连接器适配器、动态 `AgentRuntime` 真实绑定与更细粒度的工具沙箱隔离
+- [x] **Phase 5a（论坛扩展）**：平台名不再是封闭枚举（`<platform>:<local>` 任意命名空间平台，靠配置接入）；多条评论批次由模型按批内 `ref` 选择回复目标（`REPLY_TO`），缺失或无效时 fail-closed
+- [ ] **后续扩展**：更多论坛参考连接器、动态 `AgentRuntime` 真实绑定与更细粒度的工具沙箱隔离
 
 ---
 

@@ -68,14 +68,10 @@ func directError(status int, code, message string) error {
 }
 
 func relaySourceForPlatform(platform contracts.Platform) string {
-	switch platform {
-	case contracts.PlatformBilibili:
-		return "bilibili:direct"
-	case contracts.PlatformWeb:
-		return "web:direct"
-	default:
-		return "wechat"
+	if contracts.IsNamespacedPlatform(platform) {
+		return string(platform) + ":direct"
 	}
+	return "wechat"
 }
 
 func directDeliverResponseFromRun(run contracts.Run, replayed bool) DirectDeliverResponse {

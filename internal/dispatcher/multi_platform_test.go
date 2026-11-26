@@ -57,6 +57,21 @@ func TestActionEndpointsConfigValidationAndHotReloadGuard(t *testing.T) {
 		t.Fatalf("expected default endpoint timeout 30, got %d", decoded.ActionEndpoints["web"].TimeoutSec)
 	}
 
+	// Operator-added forum platforms need no code change: a syntactically valid
+	// platform key with a loopback endpoint routes its own containers.
+	forum := biliTestConfig()
+	forum.ActionEndpoints["zhihu"] = ActionEndpointConfig{URL: "http://127.0.0.1:18095"}
+	forum.Rules.GroupWhitelist = append(forum.Rules.GroupWhitelist, "zhihu:question-1")
+	forum.Rules.GroupRules["zhihu:question-1"] = GroupRule{Enabled: true, TargetGroupID: "zhihu:question-1", Target: "Demo Question", HermesProfile: "demo-zhihu"}
+	forumRaw, _ := json.Marshal(forum)
+	decodedForum, err := decodeConfig(forumRaw)
+	if err != nil {
+		t.Fatalf("expected operator-added forum platform to be accepted, got %v", err)
+	}
+	if platform, ep, ok := decodedForum.actionEndpoint("zhihu:question-1"); !ok || platform != "zhihu" || ep.URL != "http://127.0.0.1:18095" {
+		t.Fatalf("forum container did not resolve its endpoint: %q %+v %t", platform, ep, ok)
+	}
+
 	// Rejects missing Bridge.URL when a WeChat route is present alongside ActionEndpoints.
 	mixed := biliTestConfig()
 	mixed.Rules.GroupWhitelist = append(mixed.Rules.GroupWhitelist, groupA)
@@ -84,9 +99,9 @@ func TestActionEndpointsConfigValidationAndHotReloadGuard(t *testing.T) {
 			},
 		},
 		{
-			name: "unsupported_platform_key_discord",
+			name: "invalid_platform_key_syntax",
 			mutate: func(c *Config) {
-				c.ActionEndpoints["discord"] = ActionEndpointConfig{URL: "http://127.0.0.1:18094", TimeoutSec: 10}
+				c.ActionEndpoints["Discord_1"] = ActionEndpointConfig{URL: "http://127.0.0.1:18094", TimeoutSec: 10}
 			},
 		},
 		{

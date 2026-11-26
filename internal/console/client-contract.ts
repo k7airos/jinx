@@ -523,7 +523,7 @@ export interface ConnectorTargetView {
 }
 
 export interface ConnectorView {
-  platform: 'bilibili' | 'web';
+  platform: ConnectorPlatform;
   configured: boolean;
   state: ServiceView['health'];
   availability: Availability;
@@ -549,7 +549,7 @@ export interface ConnectorDryRunPlanInput {
 export interface ConnectorDryRunPlan {
   id: ID;
   token: string;
-  platform: 'bilibili' | 'web';
+  platform: ConnectorPlatform;
   currentDryRun: boolean;
   targetDryRun: boolean;
   persisted: boolean;
@@ -566,7 +566,7 @@ export interface ConnectorDryRunApplyInput {
 
 export interface ConnectorDryRunApplyResult {
   ok: boolean;
-  platform: 'bilibili' | 'web';
+  platform: ConnectorPlatform;
   previousDryRun: boolean;
   dryRun: boolean;
   persisted: boolean;
@@ -584,11 +584,11 @@ export interface CurrentConsoleHTTPClient {
   getCatalog(): Promise<Result<Envelope<CatalogView>>>;
   listConnectors(): Promise<Result<Envelope<ConnectorView[]>>>;
   planConnectorDryRun(
-    platform: 'bilibili' | 'web',
+    platform: ConnectorPlatform,
     input: ConnectorDryRunPlanInput,
   ): Promise<Result<ConnectorDryRunPlan>>;
   applyConnectorDryRun(
-    platform: 'bilibili' | 'web',
+    platform: ConnectorPlatform,
     input: ConnectorDryRunApplyInput,
   ): Promise<Result<ConnectorDryRunApplyResult>>;
   listRuns(filter: RunFilter): Promise<Result<Envelope<RunPage>>>;
@@ -628,7 +628,9 @@ export type MockRequiredTargetFeature = 'overview-controls'
   | 'service-management-maintenance';
 
 export type ArchitectureDomain = 'source' | 'processing' | 'action';
-export type Platform = 'wechat' | 'bilibili' | 'web';
+/** Any lowercase namespaced platform (`^[a-z][a-z0-9-]{1,31}$`) except URL schemes; bilibili/web are built in. */
+export type ConnectorPlatform = 'bilibili' | 'web' | (string & {});
+export type Platform = 'wechat' | ConnectorPlatform;
 export type ArchitectureReason = '' | 'unsupported' | 'unavailable' | 'unverified'
   | 'policy_blocked' | 'expired' | 'canceled' | 'failed' | 'unknown' | 'upstream_reason_redacted';
 export type ArchitectureEnforcement = 'hard' | 'soft' | 'host' | 'unverified';

@@ -15,9 +15,7 @@ func validID(value string) bool { return architectureID.MatchString(value) }
 // ValidID reports whether value satisfies the bounded contract identifier format.
 func ValidID(value string) bool    { return validID(value) }
 func optionalID(value string) bool { return value == "" || validID(value) }
-func validPlatform(value Platform) bool {
-	return value == PlatformWeChat || value == PlatformBilibili || value == PlatformWeb
-}
+func validPlatform(value Platform) bool { return ValidPlatform(value) }
 func validText(value string, limit int) bool {
 	if !utf8.ValidString(value) || utf8.RuneCountInString(value) > limit {
 		return false

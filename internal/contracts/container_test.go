@@ -32,7 +32,9 @@ func TestParseAndValidContainerID(t *testing.T) {
 		"bilibili:",
 		"bilibili:../etc",
 		"bilibili:a/b",
-		"unknown:123",
+		"Unknown:123",
+		"1forum:123",
+		"http:example",
 		"wechat:100@chatroom",
 		"bilibili:BV1xx 411",
 		"bilibili:BV1xx\n411",
@@ -46,12 +48,12 @@ func TestParseAndValidContainerID(t *testing.T) {
 }
 
 func TestValidRelayContainerID(t *testing.T) {
-	for _, id := range []string{"100@chatroom", "synthetic@chatroom", "demo-group@chatroom", "bilibili:BV1xx411c7mD", "web:v2ex:topic-42"} {
+	for _, id := range []string{"100@chatroom", "synthetic@chatroom", "demo-group@chatroom", "bilibili:BV1xx411c7mD", "web:v2ex:topic-42", "zhihu:question-1"} {
 		if !ValidRelayContainerID(id) {
 			t.Fatalf("ValidRelayContainerID(%q) = false, want true", id)
 		}
 	}
-	for _, id := range []string{"", "name", "bad@@chatroom", "bilibili:../bad", "unknown:123"} {
+	for _, id := range []string{"", "name", "bad@@chatroom", "bilibili:../bad", "Unknown:123", "https:x"} {
 		if ValidRelayContainerID(id) {
 			t.Fatalf("ValidRelayContainerID(%q) = true, want false", id)
 		}
@@ -73,5 +75,25 @@ func TestSanitizeSuffixes(t *testing.T) {
 	}
 	if got := SanitizeCollectionSuffix("web:v2ex:topic-42"); got != "web_v2ex_topic_42" {
 		t.Fatalf("SanitizeCollectionSuffix web = %q", got)
+	}
+}
+
+func TestNamespacedPlatforms(t *testing.T) {
+	for _, platform := range []Platform{PlatformBilibili, PlatformWeb, "zhihu", "v2ex", "my-forum"} {
+		if !IsNamespacedPlatform(platform) || !ValidPlatform(platform) {
+			t.Fatalf("platform %q rejected", platform)
+		}
+		id := string(platform) + ":thread-1"
+		if got, local, ok := ParseContainerID(id); !ok || got != platform || local != "thread-1" {
+			t.Fatalf("ParseContainerID(%q) = %q %q %t", id, got, local, ok)
+		}
+	}
+	if !ValidPlatform(PlatformWeChat) || IsNamespacedPlatform(PlatformWeChat) {
+		t.Fatal("wechat must be valid but not namespaced")
+	}
+	for _, platform := range []Platform{"", "a", "Zhihu", "1x", "zh_hu", "zh.hu", "http", "https", "ws", "wss", "file", Platform(strings.Repeat("a", 33))} {
+		if IsNamespacedPlatform(platform) || ValidPlatform(platform) {
+			t.Fatalf("platform %q accepted", platform)
+		}
 	}
 }

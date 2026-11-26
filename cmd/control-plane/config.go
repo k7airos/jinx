@@ -25,6 +25,7 @@ type settings struct {
 	bridge             string
 	bilibiliConnector  string
 	webConnector       string
+	connectors         connectorFlag
 	stateDir           string
 	executionConfig    string
 	backendDefinitions string
@@ -46,6 +47,7 @@ func parseSettings(arguments []string, output io.Writer) (settings, error) {
 	flags.StringVar(&config.bridge, "bridge", "", "optional Bridge HTTP loopback origin")
 	flags.StringVar(&config.bilibiliConnector, "bilibili-connector", "", "optional Bilibili connector HTTP loopback origin")
 	flags.StringVar(&config.webConnector, "web-connector", "", "optional Web connector HTTP loopback origin")
+	flags.Var(&config.connectors, "connector", "optional repeatable platform=origin Action Connector, e.g. zhihu=http://127.0.0.1:18095 (bilibili/web may use their own flags)")
 	flags.StringVar(&config.stateDir, "state-dir", "", "required absolute isolated control-plane data directory")
 	flags.StringVar(&config.executionConfig, "execution-config", "", "required execution state JSON path inside state-dir; initialized empty when absent")
 	flags.StringVar(&config.backendDefinitions, "backend-definitions", "", "required trusted schemaVersion 1 backend JSON shared with jinx-dispatcher -backends-json; unversioned definitions are deprecated")
@@ -172,4 +174,36 @@ func loadBackends(path string) ([]execution.BackendOptions, error) {
 	}
 	log.Print("deprecated backend definitions without schemaVersion; migrate to the shared schemaVersion 1 format")
 	return backends, nil
+}
+
+// connectorFlag collects repeatable -connector platform=origin values. Origin
+// syntax is validated by console.New; only the pair shape and duplicates are
+// checked here.
+type connectorFlag map[string]string
+
+func (value *connectorFlag) String() string {
+	if value == nil {
+		return ""
+	}
+	pairs := make([]string, 0, len(*value))
+	for platform, origin := range *value {
+		pairs = append(pairs, platform+"="+origin)
+	}
+	return strings.Join(pairs, ",")
+}
+
+func (value *connectorFlag) Set(raw string) error {
+	platform, origin, ok := strings.Cut(strings.TrimSpace(raw), "=")
+	platform, origin = strings.TrimSpace(platform), strings.TrimSpace(origin)
+	if !ok || platform == "" || origin == "" {
+		return errors.New("connector must be platform=origin")
+	}
+	if *value == nil {
+		*value = connectorFlag{}
+	}
+	if _, exists := (*value)[platform]; exists {
+		return errors.New("duplicate connector platform")
+	}
+	(*value)[platform] = origin
+	return nil
 }
