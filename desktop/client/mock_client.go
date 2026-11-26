@@ -354,6 +354,23 @@ func (m *MockClient) initData() {
 			"idle_timeout_sec":           makeField(float64(8), float64(8), "global", true, ""),
 			"max_batch_wait_sec":         makeField(float64(25), float64(25), "global", true, ""),
 			"max_message_age_sec":        makeField(float64(300), float64(300), "global", true, ""),
+			"forward_rules": makeField(
+				[]ForwardRule{{
+					ID:                "demo-v2ex-to-wx",
+					Enabled:           true,
+					SourceContainerID: "v2ex:t-100001",
+					TargetContainerID: "100002@chatroom",
+					DryRun:            true,
+				}},
+				[]ForwardRule{{
+					ID:                "demo-v2ex-to-wx",
+					Enabled:           true,
+					SourceContainerID: "v2ex:t-100001",
+					TargetContainerID: "100002@chatroom",
+					DryRun:            true,
+				}},
+				"global", true, "",
+			),
 		},
 		Compatibility: CompatibilityBlock{
 			GroupWhitelist: []string{"100001@chatroom", "100002@chatroom", "bilibili:BV1example0001"},
@@ -1156,6 +1173,13 @@ func (m *MockClient) PublishChange(ctx context.Context, input PublishInput) (Ope
 					m.groups[gid] = g
 				}
 			}
+				} else if ch.Component == "dispatcher" {
+			if fv, ok := m.globalRules.Fields[ch.Path]; ok {
+				fv.Configured = ch.After
+				fv.Effective = ch.After
+				fv.Origin = "global"
+				m.globalRules.Fields[ch.Path] = fv
+			}
 		} else if ch.Component == "relay" {
 			switch ch.Path {
 			case "relay_filters.clean_content":
@@ -1517,6 +1541,74 @@ func (m *MockClient) GetConfigurationDrift(ctx context.Context, component string
 	return Envelope[ConfigurationDrift]{
 		Data: d, ObservedAt: m.now, Source: "config_drift_reader",
 		Freshness: "fresh", Completeness: "partial", Revision: m.versions().Fingerprint,
+	}, nil
+}
+
+func (m *MockClient) DirectDeliver(ctx context.Context, input DirectDeliverInput) (DirectDeliverResult, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	targetID := strings.TrimSpace(input.TargetContainerID)
+	text := strings.TrimSpace(input.Text)
+	idemKey := strings.TrimSpace(input.IdempotencyKey)
+	if targetID == "" || text == "" || idemKey == "" {
+		return DirectDeliverResult{}, &APIError{Status: 400, Problem: &Problem{Code: "validation", Message: "target_container_id, text, and idempotency_key are required"}}
+	}
+	grp, exists := m.groups[targetID]
+	if !exists || !grp.Enabled || !grp.Whitelisted {
+		return DirectDeliverResult{}, &APIError{Status: 403, Problem: &Problem{Code: "forbidden", Message: "target container is not enabled and allowlisted"}}
+	}
+	src := strings.ToLower(strings.TrimSpace(input.Source))
+	trigger := "direct"
+	if src != "" {
+		trigger = "direct:" + src
+	}
+	runID := fmt.Sprintf("run-direct-%03d", len(m.runs)+1)
+	outcome := "replied"
+	delivery := "confirmed"
+	reasonCode := ""
+	if input.DryRun {
+		outcome = "suppressed"
+		delivery = "blocked"
+		reasonCode = "dry_run"
+	}
+	now := m.now
+	ev := DeliveryEvidence{NoSubmission: input.DryRun}
+	if !input.DryRun {
+		ack := "bridge_ack"
+		echoID := "echo-" + idemKey
+		ev = DeliveryEvidence{
+			SubmissionStartedAt: &now,
+			SubmittedAt:         &now,
+			SubmittedAtSource:   &ack,
+			ConfirmedAt:         &now,
+			BridgeRequestID:     &idemKey,
+			EchoMessageID:       &echoID,
+		}
+	}
+	backend := "direct_passthrough"
+	var rcPtr *string
+	if reasonCode != "" {
+		rcPtr = &reasonCode
+	}
+	m.runs = append([]RunView{{
+		ID: runID, Revision: "run-rev-direct-" + idemKey, EntitySeq: uint64(len(m.runs) + 1),
+		Source: grp.Group, Target: grp.Group, AcceptedAt: &now, UpdatedAt: now, LastProgressAt: &now,
+		Trigger: trigger, MessageCount: ptrInt(1), MessageIDs: []string{"direct:" + idemKey},
+		Phase: "terminal", Outcome: outcome, Delivery: delivery, ReasonCode: rcPtr,
+		Summary: "Direct passthrough delivery", Completeness: "complete", Versions: m.versions(),
+		PlannedBackendID: &backend, Attempts: []AttemptView{}, SideEffects: []SideEffect{}, DeliveryEvidence: ev,
+	}}, m.runs...)
+	return DirectDeliverResult{
+		RunID:             runID,
+		Replayed:          false,
+		DryRun:            input.DryRun,
+		TargetContainerID: targetID,
+		Trigger:           trigger,
+		Phase:             "terminal",
+		Outcome:           outcome,
+		Delivery:          delivery,
+		ReasonCode:        reasonCode,
+		DeliveryEvidence:  ev,
 	}, nil
 }
 

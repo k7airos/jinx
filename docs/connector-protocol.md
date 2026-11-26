@@ -173,3 +173,12 @@ Dispatcher 通过 `action_endpoints.<platform>` 配置连接非微信平台的�
   go run -ldflags=-linkmode=external ./cmd/bilibili-connector -config /absolute/path/to/private-config.json -once
   ```
 - 若配置了 `action_endpoints.bilibili`，当且仅当同一配置文件中不存在微信群路由（`<digits>@chatroom`）时，Dispatcher 允许省略 `bridge.url`。修改 `action_endpoints` 需重启 Dispatcher 进程生效（热更新接口拒绝变更服务端点）。
+
+### 4.1 `cmd/v2ex-connector` 论坛主题参考连接器
+
+`cmd/v2ex-connector` 是基于同一套 `internal/connector.Server` 与可插拔 `Driver` 接口（[`internal/connector/v2ex/driver.go`](../internal/connector/v2ex/driver.go)）实现的 V2EX 论坛帖子参考连接器，同样默认 `"dry_run": true`：
+
+- 容器格式为 `v2ex:t-<topic_id>`（示例见 [`cmd/v2ex-connector/config.example.json`](../cmd/v2ex-connector/config.example.json)），多楼层批次下由 Dispatcher 的 `REPLY_TO: <ref>` 机制选定回复目标并透传 `reply_context`（`topic_id`、`reply_id`、`reply_no`、`reply_to_member`）。
+- 启用 `auto_mention: true`（默认）且针对特定楼层（`thread_reply`）回复时，连接器会自动在正文前补全 `@<reply_to_member> `（若正文已含相同 `@用户名` 前缀则不重复添加）。
+- 在遇到未登录 (`not_logged_in`)、人机验证 (`captcha_required`)、频控 (`rate_limited`)、主题已关闭 (`replies_closed`) 或 `taskSpace` 人工接管 (`user_control_active`) 时 fail-closed 返回 `status: "failed", submitted: false`。
+- 路由接入时在 Dispatcher 中配置 `action_endpoints.v2ex`，并在 `control-plane` 启动参数附加 `-connector v2ex=http://127.0.0.1:18094`。

@@ -3,6 +3,7 @@ package app
 import (
 	"bytes"
 	"context"
+	"image/png"
 	"strings"
 	"sync"
 	"testing"
@@ -256,6 +257,19 @@ func TestServicesMaintenanceAndChangesRollback(t *testing.T) {
 func TestDesktopLogoLoadedAndRendered(t *testing.T) {
 	if !bytes.HasPrefix(assets.LogoPNG, []byte{0x89, 'P', 'N', 'G', '\r', '\n', 0x1a, '\n'}) {
 		t.Fatalf("expected embedded LogoPNG to have valid PNG signature, got %d bytes", len(assets.LogoPNG))
+	}
+	appIconImg, err := png.Decode(bytes.NewReader(assets.AppIconPNG))
+	if err != nil {
+		t.Fatalf("expected embedded AppIconPNG to decode cleanly: %v", err)
+	}
+	if appIconImg.Bounds().Dx() != 1024 || appIconImg.Bounds().Dy() != 1024 {
+		t.Fatalf("expected 1024x1024 AppIconPNG, got %dx%d", appIconImg.Bounds().Dx(), appIconImg.Bounds().Dy())
+	}
+	if _, _, _, cornerA := appIconImg.At(0, 0).RGBA(); cornerA != 0 {
+		t.Fatalf("expected transparent corner (0,0) for HIG Dock padding, got alpha=%d", cornerA)
+	}
+	if _, _, _, centerA := appIconImg.At(512, 512).RGBA(); centerA != 0xffff {
+		t.Fatalf("expected opaque center (512,512), got alpha=%d", centerA)
 	}
 	store, _, tt := newTestedStore(t, "full")
 	if store.LogoBitmap() == nil {
@@ -859,4 +873,44 @@ func TestVisualClarityAndPasteplusFallbackSemantics(t *testing.T) {
 	if store.ConnMode != 0 {
 		t.Fatalf("expected ConnMode=0 after clicking 本地控制面, got %d", store.ConnMode)
 	}
+}
+
+func TestForwardRulesAndDirectDeliverUI(t *testing.T) {
+	mc := client.NewMockClient("full")
+	store := NewStore(mc, false)
+	store.LoadAll(context.Background())
+	tt := ui.NewTester(store.View, 1380, 900)
+	tt.Frame()
+
+	clickMust(t, tt, "容器与规则")
+	clickMust(t, tt, "直通转发")
+	assertHasText(t, tt, "demo-v2ex-to-wx")
+	if len(store.ForwardRulesDraft) != 1 {
+		t.Fatalf("expected 1 seeded demo forward rule, got %d", len(store.ForwardRulesDraft))
+	}
+
+	// Add a new forward rule draft, plan, and publish.
+	store.NewFwdID = "ui-v2ex-wx"
+	store.NewFwdSource = "v2ex:t-200001"
+	clickMust(t, tt, "添加到草稿列表")
+	if !store.ForwardRulesDirty || len(store.ForwardRulesDraft) != 2 {
+		t.Fatalf("expected 2 forward rules and dirty=true, got len=%d dirty=%v", len(store.ForwardRulesDraft), store.ForwardRulesDirty)
+	}
+
+	clickMust(t, tt, "预览并发布转发规则")
+	if !store.ChangePlanModalOpen {
+		t.Fatal("expected ChangePlanModalOpen=true")
+	}
+	clickMust(t, tt, "发布变更")
+	if store.ForwardRulesDirty || store.LastOperation == nil || store.LastOperation.Status != "succeeded" {
+		t.Fatalf("expected published forward rules without dirty flag, dirty=%v op=%+v", store.ForwardRulesDirty, store.LastOperation)
+	}
+
+	// Test manual DirectDeliver panel (dry_run=true by default).
+	store.DirectText = "手动直发验证文本"
+	clickMust(t, tt, "发送直发测试")
+	if store.LastDirectResult == nil || !store.LastDirectResult.DryRun || store.LastDirectResult.ReasonCode != "dry_run" {
+		t.Fatalf("expected dry_run DirectDeliverResult, got %+v", store.LastDirectResult)
+	}
+	assertHasText(t, tt, "最近直发结果")
 }

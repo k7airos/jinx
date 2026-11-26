@@ -7,3 +7,9 @@ import _ "embed"
 //
 //go:embed jinx-logo.png
 var LogoPNG []byte
+
+// AppIconPNG holds the Apple HIG padded squircle PNG used for the macOS Dock
+// and window icon so it matches standard macOS application proportions.
+//
+//go:embed jinx-app-icon.png
+var AppIconPNG []byte

@@ -65,6 +65,7 @@ func globalSchema() map[string]SchemaEntry {
 	for _, field := range []string{"bot_names", "self_sender_ids", "keyword_blocklist"} {
 		schema[field] = SchemaEntry{Type: "string_list", Nullable: true, Editable: true}
 	}
+	schema["forward_rules"] = SchemaEntry{Type: "forward_rule_list", Nullable: true, Editable: true, Default: []any{}}
 	for field, bounds := range map[string][2]float64{
 		"batch_size": {1, 50}, "idle_timeout_sec": {1, 300}, "max_batch_wait_sec": {1, 300},
 		"max_message_age_sec": {1, 3600}, "session_max_turns": {0, 1000}, "session_max_age_sec": {0, 2592000},
@@ -124,11 +125,112 @@ func validateValue(field string, value any, entry SchemaEntry, group bool) error
 				valid = valid && ok && number >= 0 && number <= 2147483647 && number == float64(int64(number))
 			}
 		}
+	case "forward_rule_list":
+		if _, err := canonicalForwardRules(value); err != nil {
+			valid = false
+		} else {
+			valid = true
+		}
 	}
 	if !valid {
 		return invalidField(field)
 	}
 	return nil
+}
+
+func canonicalForwardRules(value any) ([]map[string]any, error) {
+	if value == nil {
+		return []map[string]any{}, nil
+	}
+	var rawList []any
+	switch typed := value.(type) {
+	case []any:
+		rawList = typed
+	case []map[string]any:
+		rawList = make([]any, len(typed))
+		for i, item := range typed {
+			rawList[i] = item
+		}
+	default:
+		return nil, invalidField("forward_rules")
+	}
+	if len(rawList) > 64 {
+		return nil, invalidField("forward_rules")
+	}
+	allowedKeys := map[string]bool{
+		"id":                  true,
+		"enabled":             true,
+		"source_container_id": true,
+		"target_container_id": true,
+		"dry_run":             true,
+		"include_echo":        true,
+		"template":            true,
+	}
+	seenIDs := make(map[string]bool, len(rawList))
+	out := make([]map[string]any, 0, len(rawList))
+	for _, rawItem := range rawList {
+		obj, ok := rawItem.(map[string]any)
+		if !ok {
+			return nil, invalidField("forward_rules")
+		}
+		for k := range obj {
+			if !allowedKeys[k] {
+				return nil, invalidField("forward_rules")
+			}
+		}
+		idRaw, idOK := obj["id"].(string)
+		id := strings.TrimSpace(idRaw)
+		if !idOK || !mountIDPattern.MatchString(id) || seenIDs[id] {
+			return nil, invalidField("forward_rules")
+		}
+		seenIDs[id] = true
+
+		enabled, enOK := obj["enabled"].(bool)
+		if !enOK {
+			return nil, invalidField("forward_rules")
+		}
+		srcRaw, srcOK := obj["source_container_id"].(string)
+		dstRaw, dstOK := obj["target_container_id"].(string)
+		src := strings.TrimSpace(srcRaw)
+		dst := strings.TrimSpace(dstRaw)
+		if !srcOK || !dstOK || !contracts.ValidContainerID(src) || !contracts.ValidContainerID(dst) || src == dst {
+			return nil, invalidField("forward_rules")
+		}
+		dryRun := false
+		if rawDry, exists := obj["dry_run"]; exists {
+			b, ok := rawDry.(bool)
+			if !ok {
+				return nil, invalidField("forward_rules")
+			}
+			dryRun = b
+		}
+		includeEcho := false
+		if rawEcho, exists := obj["include_echo"]; exists {
+			b, ok := rawEcho.(bool)
+			if !ok {
+				return nil, invalidField("forward_rules")
+			}
+			includeEcho = b
+		}
+		tmpl := ""
+		if rawTmpl, exists := obj["template"]; exists {
+			s, ok := rawTmpl.(string)
+			if !ok || !utf8.ValidString(s) || strings.ContainsRune(s, '\x00') || utf8.RuneCountInString(s) > 1000 {
+				return nil, invalidField("forward_rules")
+			}
+			tmpl = s
+		}
+		out = append(out, map[string]any{
+			"id":                  id,
+			"enabled":             enabled,
+			"source_container_id": src,
+			"target_container_id": dst,
+			"dry_run":             dryRun,
+			"include_echo":        includeEcho,
+			"template":            tmpl,
+		})
+	}
+	return out, nil
 }
 
 var (
@@ -252,6 +354,16 @@ func validateConfig(config snapshot) error {
 	for _, id := range whitelist {
 		if _, exists := groups(config)[fmt.Sprint(id)]; !exists {
 			return invalidField("group_whitelist")
+		}
+	}
+	if fwdRules, err := canonicalForwardRules(config.rules["forward_rules"]); err != nil {
+		return err
+	} else {
+		for _, r := range fwdRules {
+			targetID, _ := r["target_container_id"].(string)
+			if _, exists := groups(config)[targetID]; !exists {
+				return invalidField("forward_rules")
+			}
 		}
 	}
 	return nil
@@ -378,6 +490,14 @@ func diff(before, after snapshot, patch map[string]any) []FieldChange {
 		oldValue, newValue := before.rules[key], after.rules[key]
 		if key == "dry_run" {
 			oldValue, newValue = before.root["bridge"].(map[string]any)[key], after.root["bridge"].(map[string]any)[key]
+		}
+		if key == "forward_rules" {
+			if normOld, err := canonicalForwardRules(oldValue); err == nil {
+				oldValue = normOld
+			}
+			if normNew, err := canonicalForwardRules(newValue); err == nil {
+				newValue = normNew
+			}
 		}
 		if !reflect.DeepEqual(oldValue, newValue) {
 			changes = append(changes, FieldChange{Component: "dispatcher", Path: key, Before: oldValue, After: newValue, EffectiveBefore: oldValue, EffectiveAfter: newValue})

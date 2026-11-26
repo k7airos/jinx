@@ -1,0 +1,25 @@
+{
+  "listen_addr": "127.0.0.1:18094",
+  "relay_url": "http://127.0.0.1:18080",
+  "state_dir": "./state-v2ex-connector",
+  "account_id": "v2ex-ego",
+  "self_usernames": [],
+  "dry_run": true,
+  "auto_mention": true,
+  "poll_interval_sec": 60,
+  "max_initial_age_sec": 300,
+  "ego": {
+    "task_space": "jinx-v2ex-comments",
+    "timeout_sec": 45,
+    "keep_page": false
+  },
+  "targets": [
+    {
+      "container_id": "v2ex:t-100001",
+      "label": "Example V2EX Topic",
+      "topic_id": "100001",
+      "enabled": true,
+      "poll_limit": 20
+    }
+  ]
+}

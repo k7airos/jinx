@@ -381,6 +381,10 @@ func (c *HTTPClient) GetConfigurationDrift(ctx context.Context, component string
 	return doJSON[Envelope[ConfigurationDrift]](ctx, c, http.MethodGet, "/console/v1/config/drift/"+url.PathEscape(component), nil)
 }
 
+func (c *HTTPClient) DirectDeliver(ctx context.Context, input DirectDeliverInput) (DirectDeliverResult, error) {
+	return doJSON[DirectDeliverResult](ctx, c, http.MethodPost, "/console/v1/direct-deliver", input)
+}
+
 func (c *HTTPClient) SubscribeRuns(ctx context.Context, cursor string, cb RunCallbacks) func() {
 	return c.subscribeSSE(ctx, "/console/v1/events", cursor, "", sseCallbacks{
 		onConnection:    cb.OnConnection,

@@ -688,6 +688,13 @@ func (facade *Facade) GetGlobalRules(ctx context.Context) (Envelope, error) {
 		if name == "dry_run" {
 			value = config.root["bridge"].(map[string]any)[name]
 		}
+		if name == "forward_rules" {
+			if norm, err := canonicalForwardRules(value); err == nil {
+				value = norm
+			} else if value == nil {
+				value = []any{}
+			}
+		}
 		values[name] = FieldValue{Configured: value, Effective: value, Origin: "global", Editable: true}
 	}
 	return envelope(map[string]any{"fields": values, "versions": versions(config), "compatibility": compatibility(config)}, config.etag, "dispatcher_memory", "complete"), nil

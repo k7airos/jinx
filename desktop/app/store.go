@@ -153,6 +153,20 @@ type Store struct {
 	RelayMonitorAll     bool
 	GlobalRelayDirty    bool
 
+	ForwardRulesDraft []client.ForwardRule
+	ForwardRulesDirty bool
+	NewFwdID          string
+	NewFwdSource      string
+	NewFwdTargetLabel string
+	NewFwdTemplate    string
+	NewFwdEnabled     bool
+	NewFwdDryRun      bool
+	NewFwdIncludeEcho bool
+	DirectTargetLabel string
+	DirectText        string
+	DirectDryRun      bool
+	LastDirectResult  *client.DirectDeliverResult
+
 	ChangePlanModalOpen bool
 	ActivePlan          *client.ChangePlan
 	ActivePlanIsRelay   bool
@@ -245,8 +259,12 @@ func NewStore(c client.ConsoleClient, dark bool) *Store {
 		RunPhaseFilter:      "全部",
 		RunOutcomeFilter:    "全部",
 		RunDeliveryFilter:   "全部",
+		RunQuery:            "",
 		RunGroupFilterLabel: "全部容器",
 		ChangeStatusFilter:  "全部",
+		NewFwdEnabled:       true,
+		NewFwdDryRun:        true,
+		DirectDryRun:        true,
 	}
 	s.GroupList.Selected = &s.SelectedGroupIdx
 	s.RunList.Selected = &s.SelectedRunIdx
@@ -570,6 +588,7 @@ func (s *Store) applyBundle(b loadedBundle) {
 	if b.groups != nil {
 		s.Groups = b.groups
 		s.syncSelectedGroupLocked()
+		s.syncForwardTargetDefaults()
 	}
 	if b.selectedRouting != nil {
 		s.SelectedRouting = b.selectedRouting
@@ -714,6 +733,9 @@ func (s *Store) switchClient(c *ui.Context, next client.ConsoleClient, toastMsg 
 	s.ActiveServicePlan = nil
 	s.Draft = GroupDraft{}
 	s.GlobalRelayDirty = false
+	s.ForwardRulesDraft = nil
+	s.ForwardRulesDirty = false
+	s.LastDirectResult = nil
 	s.SelectedGroupIdx = 0
 	s.SelectedGroupID = ""
 	s.SelectedRunIdx = 0
@@ -924,13 +946,22 @@ func (s *Store) loadGroupDraft(g client.GroupView) {
 }
 
 func (s *Store) syncGlobalDraft() {
-	if s.GlobalRelayDirty || s.GlobalRules == nil {
+	if s.GlobalRules == nil {
 		return
 	}
 	f := s.GlobalRules.Data.Fields
-	s.GlobalDryRun = fieldBool(f, "dry_run")
-	s.GlobalLayaFilter = fieldBool(f, "laya_filter")
-	s.GlobalBypassMention = fieldBool(f, "bypass_decision_on_mention")
+	if !s.GlobalRelayDirty {
+		s.GlobalDryRun = fieldBool(f, "dry_run")
+		s.GlobalLayaFilter = fieldBool(f, "laya_filter")
+		s.GlobalBypassMention = fieldBool(f, "bypass_decision_on_mention")
+	}
+	if !s.ForwardRulesDirty {
+		if fwd, ok := f["forward_rules"]; ok {
+			s.ForwardRulesDraft = client.DecodeForwardRules(fwd.Configured)
+		} else {
+			s.ForwardRulesDraft = nil
+		}
+	}
 }
 
 func (s *Store) syncRelayDraft() {
@@ -1251,6 +1282,233 @@ func (s *Store) PlanRelayDraft(c *ui.Context) {
 	})
 }
 
+func (s *Store) TargetContainerOptions() []string {
+	var wechatOpts []string
+	var otherOpts []string
+	for _, g := range s.Groups {
+		label := fmt.Sprintf("%s (%s)", s.ContainerDisplayName(g.ID, g.Group.Label), g.ID)
+		if strings.HasSuffix(g.ID, "@chatroom") {
+			wechatOpts = append(wechatOpts, label)
+		} else {
+			otherOpts = append(otherOpts, label)
+		}
+	}
+	return append(wechatOpts, otherOpts...)
+}
+
+func (s *Store) syncForwardTargetDefaults() {
+	opts := s.TargetContainerOptions()
+	if len(opts) == 0 {
+		return
+	}
+	inOpts := func(val string) bool {
+		for _, opt := range opts {
+			if opt == val {
+				return true
+			}
+		}
+		return false
+	}
+	if !inOpts(s.NewFwdTargetLabel) {
+		s.NewFwdTargetLabel = opts[0]
+	}
+	if !inOpts(s.DirectTargetLabel) {
+		s.DirectTargetLabel = opts[0]
+	}
+}
+
+func (s *Store) resolveTargetContainerID(label string) string {
+	trimmed := strings.TrimSpace(label)
+	if trimmed == "" {
+		return ""
+	}
+	for _, g := range s.Groups {
+		opt := fmt.Sprintf("%s (%s)", s.ContainerDisplayName(g.ID, g.Group.Label), g.ID)
+		if trimmed == opt || trimmed == g.ID {
+			return g.ID
+		}
+	}
+	if idx := strings.LastIndex(trimmed, "("); idx >= 0 && strings.HasSuffix(trimmed, ")") {
+		return strings.TrimSpace(trimmed[idx+1 : len(trimmed)-1])
+	}
+	return trimmed
+}
+
+func (s *Store) KnownSourceContainers() []string {
+	seen := map[string]bool{}
+	var out []string
+	add := func(id string) {
+		if id == "" || seen[id] {
+			return
+		}
+		seen[id] = true
+		out = append(out, id)
+	}
+	for _, conn := range s.Connectors {
+		for _, t := range conn.Targets {
+			add(t.ContainerID)
+		}
+	}
+	for _, g := range s.Groups {
+		if !strings.HasSuffix(g.ID, "@chatroom") {
+			add(g.ID)
+		}
+	}
+	return out
+}
+
+func (s *Store) AddForwardRuleDraft(c *ui.Context) {
+	src := strings.TrimSpace(s.NewFwdSource)
+	dst := s.resolveTargetContainerID(s.NewFwdTargetLabel)
+	if src == "" {
+		s.showToast(c, "请填写来源容器 ID（例如 v2ex:t-100001）")
+		return
+	}
+	if dst == "" {
+		s.showToast(c, "请选择已配置路由的目标容器")
+		return
+	}
+	if src == dst {
+		s.showToast(c, "来源容器与目标容器不能相同")
+		return
+	}
+	id := strings.TrimSpace(s.NewFwdID)
+	if id == "" {
+		n := len(s.ForwardRulesDraft) + 1
+		for {
+			candidate := fmt.Sprintf("fwd-%d", n)
+			dup := false
+			for _, r := range s.ForwardRulesDraft {
+				if r.ID == candidate {
+					dup = true
+					break
+				}
+			}
+			if !dup {
+				id = candidate
+				break
+			}
+			n++
+		}
+	}
+	for _, r := range s.ForwardRulesDraft {
+		if r.ID == id {
+			s.showToast(c, fmt.Sprintf("规则 ID %q 已存在", id))
+			return
+		}
+	}
+	s.ForwardRulesDraft = append(s.ForwardRulesDraft, client.ForwardRule{
+		ID:                id,
+		Enabled:           s.NewFwdEnabled,
+		SourceContainerID: src,
+		TargetContainerID: dst,
+		DryRun:            s.NewFwdDryRun,
+		IncludeEcho:       s.NewFwdIncludeEcho,
+		Template:          s.NewFwdTemplate,
+	})
+	s.ForwardRulesDirty = true
+	s.NewFwdID = ""
+	s.NewFwdSource = ""
+	s.NewFwdTemplate = ""
+	s.showToast(c, fmt.Sprintf("已添加规则 %s 到草稿列表，请点击预览并发布", id))
+}
+
+func (s *Store) RemoveForwardRuleDraft(idx int) {
+	if idx < 0 || idx >= len(s.ForwardRulesDraft) {
+		return
+	}
+	s.ForwardRulesDraft = append(s.ForwardRulesDraft[:idx], s.ForwardRulesDraft[idx+1:]...)
+	s.ForwardRulesDirty = true
+}
+
+func (s *Store) PlanForwardRulesDraft(c *ui.Context) {
+	if s.GlobalRules == nil {
+		s.showToast(c, "全局规则暂未加载，请先刷新控制台")
+		return
+	}
+	rules := s.ForwardRulesDraft
+	if rules == nil {
+		rules = []client.ForwardRule{}
+	}
+	input := client.PlanInput{
+		RequestID:     s.nextRequestID("fwdplan"),
+		Base:          s.GlobalRules.Data.Versions,
+		SchemaVersion: client.SchemaVersion,
+		Edits: []client.Edit{
+			{Kind: "field", Scope: client.Scope{Kind: "global"}, Field: "forward_rules", Value: mustRaw(rules)},
+		},
+	}
+	connCtx, cli, epoch := s.ensureConn()
+	s.Busy = true
+	s.runOp(func() {
+		plan, err := cli.PlanChange(connCtx, input)
+		s.dispatchEpoch(epoch, func() {
+			s.Busy = false
+			if err != nil {
+				s.LastError = err.Error()
+				s.showToast(c, "生成直通转发变更计划失败: "+err.Error())
+				return
+			}
+			s.LastError = ""
+			s.ActivePlan = &plan
+			s.ActivePlanIsRelay = false
+			s.PublishConflict = ""
+			s.ChangePlanModalOpen = true
+		})
+	})
+}
+
+func (s *Store) SendDirectDeliver(c *ui.Context) {
+	targetID := s.resolveTargetContainerID(s.DirectTargetLabel)
+	text := strings.TrimSpace(s.DirectText)
+	if targetID == "" {
+		s.showToast(c, "请选择目标微信群或容器")
+		return
+	}
+	if text == "" {
+		s.showToast(c, "请输入要直发的文本内容")
+		return
+	}
+	input := client.DirectDeliverInput{
+		TargetContainerID: targetID,
+		Text:              text,
+		IdempotencyKey:    s.nextRequestID("direct"),
+		Source:            "console",
+		DryRun:            s.DirectDryRun,
+	}
+	rf := s.currentRunFilter()
+	connCtx, cli, epoch := s.ensureConn()
+	s.Busy = true
+	s.runOp(func() {
+		res, err := cli.DirectDeliver(connCtx, input)
+		var runsPage *client.Envelope[client.RunPage]
+		if err == nil {
+			if page, rErr := cli.ListRuns(connCtx, rf); rErr == nil {
+				runsPage = &page
+			}
+		}
+		s.dispatchEpoch(epoch, func() {
+			s.Busy = false
+			if err != nil {
+				s.LastError = err.Error()
+				s.showToast(c, "直发请求失败: "+err.Error())
+				return
+			}
+			s.LastError = ""
+			s.LastDirectResult = &res
+			if runsPage != nil {
+				s.RunsPage = runsPage
+			}
+			s.DirectText = ""
+			if res.DryRun {
+				s.showToast(c, fmt.Sprintf("直发演练已拦截（%s）", components.ShortReasonLabel(res.ReasonCode)))
+			} else {
+				s.showToast(c, fmt.Sprintf("直发投递已提交（%s）", components.DeliveryLabel(res.Delivery)))
+			}
+		})
+	})
+}
+
 // PublishActivePlan publishes the reviewed ChangePlan and surfaces 409 conflicts safely.
 func (s *Store) PublishActivePlan(c *ui.Context) {
 	if s.ActivePlan == nil {
@@ -1286,6 +1544,7 @@ func (s *Store) PublishActivePlan(c *ui.Context) {
 			}
 			s.Draft.Dirty = false
 			s.GlobalRelayDirty = false
+			s.ForwardRulesDirty = false
 			s.applyBundle(b)
 			s.LastOperation = &op
 			s.ChangePlanModalOpen = false

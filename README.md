@@ -69,6 +69,7 @@ JINX 是一个面向多平台消息接入、场景化智能决策与受控动作
 | `cmd/jinx-dispatcher` | **主调度入口**：注入结构化 `execution.Engine`，负责防抖聚合、门禁过滤、Scenario Playbooks 提示词组装、模型与权限校验、多平台动作投递及 WAL 持久 trace |
 | `cmd/dispatcher` | 兼容传统外部 `stream-json` adapter 协议的调度入口；与 `cmd/jinx-dispatcher` 为替代关系，共享配置目录 `.dispatcher.lock`，**严禁对同一消息流双开** |
 | `cmd/bilibili-connector` | 首个非微信端到端参考连接器：通过 `ego-browser` 轮询 B 站视频评论及楼中楼、维护断点游标并暴露 Action Connector HTTP v1 动作服务（默认 `dry_run: true`） |
+| `cmd/v2ex-connector` | 论坛主题参考连接器：通过 `ego-browser` 轮询 V2EX 帖子回复并自动带 `@用户名` 回帖（默认 `dry_run: true`），真实配置建议放在仓库外运行目录 |
 | `cmd/control-plane` | 完整统一控制面（`/console/v1/*`）：提供运行追踪、规则与执行配置预览/发布/回滚、全局/容器暂停与维护排空、白名单 `launchd` 管理及 `/architecture` 只读投影 |
 | `cmd/console-api` | 轻量级控制台 Facade 兼容入口（不注入 `Engine` 与 `supervisor` 服务控制；`/backends` 与 `backend_catalog` 显式标记为 `unsupported`） |
 | `cmd/backend-adapter` | 兼容旧外部 `stream-json` 协议的独立执行器适配器入口 |

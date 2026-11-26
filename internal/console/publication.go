@@ -61,6 +61,20 @@ func matchPatch(config snapshot, patch map[string]any) (bool, error) {
 		if key == "dry_run" {
 			actual, exists = config.root["bridge"].(map[string]any)[key]
 		}
+		if key == "forward_rules" {
+			normExpected, err := canonicalForwardRules(expected)
+			if err != nil {
+				return false, err
+			}
+			normActual, err := canonicalForwardRules(actual)
+			if err != nil {
+				return false, err
+			}
+			if !reflect.DeepEqual(normExpected, normActual) {
+				matches = false
+			}
+			continue
+		}
 		if !exists {
 			matches = false
 			continue

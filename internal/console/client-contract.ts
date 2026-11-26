@@ -238,8 +238,43 @@ export interface GlobalRulesView {
   };
 }
 
+export interface ForwardRule {
+  id: ID;
+  enabled: boolean;
+  source_container_id: ID;
+  target_container_id: ID;
+  dry_run?: boolean;
+  include_echo?: boolean;
+  template?: string;
+}
+
+export interface DirectDeliverInput {
+  target_container_id: ID;
+  text: string;
+  idempotency_key: ID;
+  source?: string;
+  dry_run?: boolean;
+  content_id?: ID;
+  parent_id?: ID;
+  root_id?: ID;
+  reply_context?: unknown;
+}
+
+export interface DirectDeliverResult {
+  run_id: ID;
+  replayed: boolean;
+  dry_run: boolean;
+  target_container_id: ID;
+  trigger: string;
+  phase: Phase;
+  outcome: Outcome;
+  delivery: Delivery;
+  reason_code?: string;
+  delivery_evidence: DeliveryEvidence;
+}
+
 export interface SchemaEntry {
-  type: 'boolean' | 'string' | 'integer' | 'decimal' | 'string_list' | 'number_list';
+  type: 'boolean' | 'string' | 'integer' | 'decimal' | 'string_list' | 'number_list' | 'forward_rule_list';
   nullable: boolean;
   minimum: number;
   maximum: number;
@@ -606,6 +641,7 @@ export interface CurrentConsoleHTTPClient {
   listChanges(filter?: ChangeFilter): Promise<Result<Envelope<ChangePage>>>;
   getChange(id: ID): Promise<Result<Envelope<ChangeRecord>>>;
   planRollback(input: { requestId: ID; changeId: ID; base: Versions }): Promise<Result<ChangePlan>>;
+  directDeliver(input: DirectDeliverInput): Promise<Result<DirectDeliverResult>>;
   listAttention(): Promise<Result<Envelope<{ items: AttentionItem[]; runsAvailable: boolean }>>>;
   acknowledgeAttention(input: { requestId: ID; expectedRevision: string; attentionId: ID }): Promise<Result<Envelope<AttentionItem>>>;
   getOperation(id: ID): Promise<Result<Operation>>;

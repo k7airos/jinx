@@ -90,6 +90,7 @@ type ConsoleClient interface {
 	GetChange(ctx context.Context, id string) (Envelope[ChangeRecord], error)
 	PlanRollback(ctx context.Context, input RollbackInput) (ChangePlan, error)
 	GetConfigurationDrift(ctx context.Context, component string) (Envelope[ConfigurationDrift], error)
+	DirectDeliver(ctx context.Context, input DirectDeliverInput) (DirectDeliverResult, error)
 
 	SubscribeRuns(ctx context.Context, cursor string, cb RunCallbacks) (stop func())
 	SubscribeArchitecture(ctx context.Context, cursor string, domain string, cb ArchitectureCallbacks) (stop func())

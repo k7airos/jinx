@@ -64,7 +64,7 @@ go run . -api http://127.0.0.1:8090 -dark
    - **平台连接器与确认式演练开关**：执行「预览变更计划 → 实盘风险警告与人工勾选确认 → 应用生效 → 回读校验（`ReadbackVerified`）」闭环，明确标示 `persisted: false`。
 3. **容器与规则（[app/view_containers.go](app/view_containers.go)）**
    - 左侧容器列表展示三标志准入徽章（`路由` / `启用` / `白名单`）与`演练中`状态。
-   - 右侧 4 个标签页：`基础与过滤`、`场景与挂载`（接入 `/console/v1/catalog` 逻辑目录，支持 `scenario`、`response_goal`、`tone`、`skills`、`tools`、`knowledge_bases`、`promo_keywords`）、`路由与权限`、`全局与中继规则`。
+   - 右侧 5 个标签页：`基础与过滤`、`场景与挂载`（接入 `/console/v1/catalog` 逻辑目录，支持 `scenario`、`response_goal`、`tone`、`skills`、`tools`、`knowledge_bases`、`promo_keywords`）、`路由与权限`、`全局与中继规则`、`直通转发`（跨平台直通转发规则与跳过过滤/AI 的手动直发测试）。
    - 全部变更通过 Diff 预览模态框提交，遭遇 `409 版本冲突` 时引导重新拉取最新配置后再计划。
 4. **运行与追踪（[app/view_runs.go](app/view_runs.go)）**
    - 全中文正交状态筛选（`运行阶段` / `执行结果` / `投递状态` / `容器 ID` / `运行或消息 ID`，不展示聊天原文）。

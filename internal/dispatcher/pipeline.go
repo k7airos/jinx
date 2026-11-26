@@ -318,7 +318,34 @@ func (d *Dispatcher) handleIncomingMessage(msg RelayMessage, eventID string) err
 	if eventID != "" {
 		d.state.LastEventID = eventID
 	}
-	return d.saveStateLocked()
+	type forwardJob struct {
+		rule ForwardRule
+		msg  RelayMessage
+	}
+	var pendingForwards []forwardJob
+	if fresh {
+		for _, fwd := range cfg.matchingForwardRules(msg.GroupID) {
+			if !fwd.IncludeEcho && (msg.IsEcho || isSelf(msg, cfg)) {
+				continue
+			}
+			if d.intakeBlockedLocked(msg.GroupID, fwd.TargetContainerID, receivedSequence) {
+				continue
+			}
+			pendingForwards = append(pendingForwards, forwardJob{rule: fwd, msg: msg})
+		}
+	}
+	if err := d.saveStateLocked(); err != nil {
+		return err
+	}
+	for _, job := range pendingForwards {
+		d.wg.Add(1)
+		job := job
+		go func() {
+			defer d.wg.Done()
+			d.runForwardRule(job.rule, job.msg)
+		}()
+	}
+	return nil
 }
 
 func (d *Dispatcher) scheduleLocked(id string, g *GroupState, rule GroupRule, botNames []string) {

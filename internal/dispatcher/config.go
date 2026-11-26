@@ -67,7 +67,8 @@ type Rules struct {
 	// long-running group does not keep one ever-growing conversation. 0 disables rotation.
 	SessionMaxTurns int `json:"session_max_turns"`
 	// SessionMaxAgeSec rotates a group's Hermes session once it is older than this. 0 disables it.
-	SessionMaxAgeSec int `json:"session_max_age_sec"`
+	SessionMaxAgeSec int           `json:"session_max_age_sec"`
+	ForwardRules     []ForwardRule `json:"forward_rules,omitempty"`
 }
 
 // Routes are keyed only by source group ID. Target names never come from messages or model output.
@@ -333,6 +334,11 @@ func (c *Config) normalizeAndValidate() error {
 			return fmt.Errorf("allowlisted group %s has no route", id)
 		}
 	}
+	normalizedForward, err := validateForwardRules(c.Rules.ForwardRules, c.Rules.GroupRules)
+	if err != nil {
+		return err
+	}
+	c.Rules.ForwardRules = normalizedForward
 	return nil
 }
 

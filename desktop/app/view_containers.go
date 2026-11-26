@@ -94,25 +94,35 @@ func (s *Store) renderContainersView(c *ui.Context, p theme.Palette) {
 				})
 			})
 
-			// Right: 4-tab Rule & Capability Editor
+			// Right: 5-tab Rule, Capability & Passthrough Forwarding Editor
 			ui.Column(c).Grow(1).Gap(12).Children(func() {
 				g, ok := s.SelectedGroup()
-				if !ok {
-					components.AlertBanner(c, p, components.ToneInfo, "请选择容器", "从左侧列表选择微信群、B站视频或网页帖子容器开始查看或编辑规则。")
-					return
-				}
 
-				ui.Tabs(c.Key("container_tabs"), &s.ContainerTab, "基础与过滤", "场景与挂载", "路由与权限", "全局与中继规则")
+				ui.Tabs(c.Key("container_tabs"), &s.ContainerTab, "基础与过滤", "场景与挂载", "路由与权限", "全局与中继规则", "直通转发")
 
 				switch s.ContainerTab {
 				case 0:
+					if !ok {
+						components.AlertBanner(c, p, components.ToneInfo, "请选择容器", "从左侧列表选择微信群、B站视频或网页帖子容器开始查看或编辑规则。")
+						return
+					}
 					s.renderContainerBasicTab(c, p, g)
 				case 1:
+					if !ok {
+						components.AlertBanner(c, p, components.ToneInfo, "请选择容器", "从左侧列表选择微信群、B站视频或网页帖子容器开始查看或编辑规则。")
+						return
+					}
 					s.renderContainerScenarioTab(c, p, g)
 				case 2:
+					if !ok {
+						components.AlertBanner(c, p, components.ToneInfo, "请选择容器", "从左侧列表选择微信群、B站视频或网页帖子容器开始查看或编辑规则。")
+						return
+					}
 					s.renderContainerRoutingTab(c, p, g)
 				case 3:
 					s.renderGlobalRelayTab(c, p)
+				case 4:
+					s.renderForwardRulesTab(c, p)
 				}
 			})
 		})
@@ -489,4 +499,190 @@ func fmtBoolPtrCN(v *bool) string {
 		return "未声明 (null)"
 	}
 	return boolValCN(*v)
+}
+
+func (s *Store) renderForwardRulesTab(c *ui.Context, p theme.Palette) {
+	targetOpts := s.TargetContainerOptions()
+	knownSources := s.KnownSourceContainers()
+
+	ui.Column(c).FillWidth().Gap(16).Children(func() {
+		components.CardWithHeader(c, p,
+			"跨平台直通转发规则（跳过过滤与 AI）",
+			"将采集来源消息绕过门禁、防抖与模型推理，直接投递到已配置路由的目标微信群",
+			func() {
+				if s.GlobalRules != nil {
+					if ui.PrimaryButton(c.Key("plan_forward_rules"), "预览并发布转发规则").Disabled(s.Busy).Clicked() {
+						s.PlanForwardRulesDraft(c)
+					}
+				}
+			},
+			func() {
+				ui.Row(c).Wrap().Gap(8).AlignItems(ui.Center).Children(func() {
+					components.TagPill(c, p, fmt.Sprintf("当前规则数: %d", len(s.ForwardRulesDraft)), components.ToneInfo)
+					if s.ForwardRulesDirty {
+						components.StatusPill(c, p, "存在未发布草稿", components.ToneWarn)
+					}
+				})
+
+				components.AlertBanner(c, p, components.ToneInfo, "直通转发边界说明",
+					"来源容器无需加入 Dispatcher 白名单（只需 Relay 收录）；目标微信群必须已在左侧容器路由中存在，且受目标群演练开关、幂等防重和自身回声确认保护。模板可用变量：{{platform}}、{{group}}、{{sender}}、{{content}}。")
+
+				if len(s.ForwardRulesDraft) == 0 {
+					ui.Text(c, "尚未配置直通转发规则。可在下方添加来源容器与目标微信群的直通映射。").FontSize(12).TextColor(p.TextMuted)
+				} else {
+					ui.Column(c).FillWidth().Gap(8).Children(func() {
+						for i := range s.ForwardRulesDraft {
+							i := i
+							rule := &s.ForwardRulesDraft[i]
+							ui.Column(c).Key("fwd_item_"+rule.ID).FillWidth().Padding(12).Gap(8).Radius(8).Background(p.SubtleBg).Border(1, p.Border).Children(func() {
+								ui.Row(c).FillWidth().Justify(ui.SpaceBetween).AlignItems(ui.Center).Gap(8).Children(func() {
+									ui.Row(c).Gap(8).AlignItems(ui.Center).Children(func() {
+										ui.Text(c, rule.ID).FontSize(13).FontWeight(600).TextColor(p.Text)
+										components.TagPill(c, p, rule.SourceContainerID+" → "+s.ContainerDisplayName(rule.TargetContainerID, ""), components.ToneInfo)
+										if rule.DryRun {
+											components.StatusPill(c, p, "演练拦截", components.ToneWarn)
+										} else if rule.Enabled {
+											components.StatusPill(c, p, "实盘直发", components.ToneOK)
+										} else {
+											components.StatusPill(c, p, "已停用", components.ToneNeutral)
+										}
+									})
+									if ui.Button(c.Key("fwd_del_"+rule.ID), "删除").Disabled(s.Busy).Clicked() {
+										s.RemoveForwardRuleDraft(i)
+									}
+								})
+								ui.Row(c).Wrap().Gap(18).AlignItems(ui.Center).Children(func() {
+									ui.Row(c).Gap(6).AlignItems(ui.Center).Children(func() {
+										ui.Text(c, "启用").FontSize(12).TextColor(p.Text)
+										if ui.Switch(c.Key("fwd_en_"+rule.ID), &rule.Enabled).Changed() {
+											s.ForwardRulesDirty = true
+										}
+									})
+									ui.Row(c).Gap(6).AlignItems(ui.Center).Children(func() {
+										ui.Text(c, "演练模式").FontSize(12).TextColor(p.Text)
+										if ui.Switch(c.Key("fwd_dry_"+rule.ID), &rule.DryRun).Changed() {
+											s.ForwardRulesDirty = true
+										}
+									})
+									ui.Row(c).Gap(6).AlignItems(ui.Center).Children(func() {
+										ui.Text(c, "包含自身回声").FontSize(12).TextColor(p.Text)
+										if ui.Switch(c.Key("fwd_echo_"+rule.ID), &rule.IncludeEcho).Changed() {
+											s.ForwardRulesDirty = true
+										}
+									})
+								})
+								if strings.TrimSpace(rule.Template) != "" {
+									ui.Text(c, "模板: "+rule.Template).FontSize(11.5).TextColor(p.TextMuted)
+								}
+							})
+						}
+					})
+				}
+
+				// Add new passthrough forwarding rule form
+				ui.Column(c).FillWidth().Padding(12).Gap(10).Radius(8).Background(p.SubtleBg).Border(1, p.Border).Children(func() {
+					ui.Text(c, "新增直通转发规则").FontSize(12.5).FontWeight(600).TextColor(p.Text)
+
+					ui.Row(c).FillWidth().Gap(10).Children(func() {
+						ui.Column(c).Width(180).Gap(4).Children(func() {
+							ui.Text(c, "规则 ID（留空自动生成）").FontSize(11.5).TextColor(p.TextMuted)
+							ui.TextInput(c.Key("new_fwd_id"), &s.NewFwdID).Placeholder("例如: v2ex-to-wx").FillWidth()
+						})
+						ui.Column(c).Grow(1).Gap(4).Children(func() {
+							ui.Text(c, "来源容器 ID").FontSize(11.5).TextColor(p.TextMuted)
+							ui.TextInput(c.Key("new_fwd_src"), &s.NewFwdSource).Placeholder("例如: v2ex:t-100001 或 bilibili:BV1...").FillWidth()
+						})
+					})
+
+					if len(knownSources) > 0 {
+						ui.Row(c).Wrap().Gap(6).AlignItems(ui.Center).Children(func() {
+							ui.Text(c, "快捷填入已知来源:").FontSize(11).TextColor(p.TextMuted)
+							for _, srcID := range knownSources {
+								srcID := srcID
+								if ui.Button(c.Key("pick_src_"+srcID), srcID).Clicked() {
+									s.NewFwdSource = srcID
+								}
+							}
+						})
+					}
+
+					ui.Row(c).FillWidth().Gap(10).AlignItems(ui.End).Children(func() {
+						ui.Column(c).Grow(1).Gap(4).Children(func() {
+							ui.Text(c, "目标容器（优先微信群）").FontSize(11.5).TextColor(p.TextMuted)
+							if len(targetOpts) > 0 {
+								ui.Select(c.Key("new_fwd_dst"), &s.NewFwdTargetLabel, targetOpts)
+							} else {
+								ui.Text(c, "暂无可选目标容器，请先在左侧配置微信群路由。").FontSize(11.5).TextColor(p.Danger)
+							}
+						})
+						ui.Column(c).Grow(1).Gap(4).Children(func() {
+							ui.Text(c, "转发模板（可选）").FontSize(11.5).TextColor(p.TextMuted)
+							ui.TextInput(c.Key("new_fwd_tmpl"), &s.NewFwdTemplate).Placeholder("[{{platform}}] {{group}} · {{sender}}: {{content}}").FillWidth()
+						})
+					})
+
+					ui.Row(c).FillWidth().Justify(ui.SpaceBetween).AlignItems(ui.Center).Wrap().Gap(12).Children(func() {
+						ui.Row(c).Wrap().Gap(16).AlignItems(ui.Center).Children(func() {
+							ui.Row(c).Gap(6).AlignItems(ui.Center).Children(func() {
+								ui.Text(c, "立即启用").FontSize(12).TextColor(p.Text)
+								ui.Switch(c.Key("new_fwd_en"), &s.NewFwdEnabled)
+							})
+							ui.Row(c).Gap(6).AlignItems(ui.Center).Children(func() {
+								ui.Text(c, "演练模式").FontSize(12).TextColor(p.Text)
+								ui.Switch(c.Key("new_fwd_dry"), &s.NewFwdDryRun)
+							})
+							ui.Row(c).Gap(6).AlignItems(ui.Center).Children(func() {
+								ui.Text(c, "包含回声").FontSize(12).TextColor(p.Text)
+								ui.Switch(c.Key("new_fwd_echo"), &s.NewFwdIncludeEcho)
+							})
+						})
+						if ui.Button(c.Key("add_fwd_draft"), "添加到草稿列表").Disabled(s.Busy || len(targetOpts) == 0).Clicked() {
+							s.AddForwardRuleDraft(c)
+						}
+					})
+				})
+			})
+
+		components.CardWithHeader(c, p,
+			"手动直发测试（跳过过滤与 AI）",
+			"通过 /console/v1/direct-deliver 直接向目标容器发送一条测试文本并生成可追踪运行记录",
+			func() {
+				if ui.PrimaryButton(c.Key("send_direct_deliver"), "发送直发测试").Disabled(s.Busy || len(targetOpts) == 0).Clicked() {
+					s.SendDirectDeliver(c)
+				}
+			},
+			func() {
+				ui.Row(c).FillWidth().Gap(12).AlignItems(ui.End).Children(func() {
+					ui.Column(c).Width(280).Gap(4).Children(func() {
+						ui.Text(c, "目标容器").FontSize(11.5).TextColor(p.TextMuted)
+						if len(targetOpts) > 0 {
+							ui.Select(c.Key("direct_dst"), &s.DirectTargetLabel, targetOpts)
+						} else {
+							ui.Text(c, "暂无可选目标容器").FontSize(11.5).TextColor(p.Danger)
+						}
+					})
+					ui.Column(c).Grow(1).Gap(4).Children(func() {
+						ui.Text(c, "发送文本").FontSize(11.5).TextColor(p.TextMuted)
+						ui.TextInput(c.Key("direct_text"), &s.DirectText).Placeholder("输入要直发测试的内容...").FillWidth()
+					})
+				})
+				ui.Row(c).Gap(8).AlignItems(ui.Center).Children(func() {
+					ui.Text(c, "本次演练模式（dry_run，仅校验链路不真实发群）").FontSize(12).TextColor(p.Text)
+					ui.Switch(c.Key("direct_dry"), &s.DirectDryRun)
+				})
+				if s.LastDirectResult != nil {
+					res := s.LastDirectResult
+					tone := components.ToneOK
+					if res.DryRun {
+						tone = components.ToneWarn
+					} else if res.Outcome == "failed" || res.Outcome == "unknown" {
+						tone = components.ToneDanger
+					}
+					components.AlertBanner(c, p, tone,
+						fmt.Sprintf("最近直发结果: %s（%s）", components.OutcomeLabel(res.Outcome), components.DeliveryLabel(res.Delivery)),
+						fmt.Sprintf("运行 ID: %s · 目标: %s · 触发: %s · 原因: %s",
+							components.ShortID(res.RunID), res.TargetContainerID, components.TriggerLabel(res.Trigger), components.ShortReasonLabel(res.ReasonCode)))
+				}
+			})
+	})
 }

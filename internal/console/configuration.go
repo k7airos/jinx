@@ -48,10 +48,21 @@ func copyJSON[T any](value T) T {
 func dispatcherAllowed(config snapshot) map[string]any {
 	rules := map[string]any{}
 	for name := range globalSchema() {
-		if name != "dry_run" {
-			if value, exists := config.rules[name]; exists {
+		if name == "dry_run" {
+			continue
+		}
+		if name == "forward_rules" {
+			if norm, err := canonicalForwardRules(config.rules[name]); err == nil {
+				rules[name] = norm
+			} else if value, exists := config.rules[name]; exists {
 				rules[name] = value
+			} else {
+				rules[name] = []any{}
 			}
+			continue
+		}
+		if value, exists := config.rules[name]; exists {
+			rules[name] = value
 		}
 	}
 	for _, name := range []string{"group_whitelist", "group_profiles", "group_other_bots", "default_profile"} {

@@ -270,6 +270,8 @@ func PlatformLabel(v string) string {
 		return "微信"
 	case "bilibili":
 		return "B站"
+	case "v2ex":
+		return "V2EX"
 	case "web":
 		return "网页/论坛"
 	default:
@@ -886,6 +888,10 @@ func TriggerLabel(v string) string {
 			srcName = "脚本接口"
 		case "script":
 			srcName = "脚本"
+		case "forward":
+			srcName = "跨平台直通转发"
+		case "console":
+			srcName = "控制台直发"
 		}
 		return "直发 · " + srcName + "（跳过 AI）"
 	}
@@ -1491,6 +1497,8 @@ func fieldLeafLabel(leaf string) string {
 		return "忽略自身回声"
 	case "monitor_all":
 		return "全量监控开关"
+	case "forward_rules":
+		return "跨平台直通转发规则"
 	default:
 		return leaf
 	}

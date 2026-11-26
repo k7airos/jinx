@@ -41,7 +41,7 @@ func main() {
 
 	mygo.App.SetName("JINX 控制台")
 	mygo.App.WhenReady(func() {
-		if err := mygo.App.Dock.SetIcon(assets.LogoPNG); err != nil {
+		if err := mygo.App.Dock.SetIcon(assets.AppIconPNG); err != nil {
 			fmt.Fprintf(os.Stderr, "jinx-desktop: 设置 Dock 图标失败: %v\n", err)
 		}
 		win := mygo.NewWindow(mygo.WindowOptions{
@@ -55,7 +55,7 @@ func main() {
 			BackgroundColor: "light-dark(#F7F8FA, #15171A)",
 			Content:         ui.View(store.View),
 		})
-		if err := win.SetIcon(assets.LogoPNG); err != nil {
+		if err := win.SetIcon(assets.AppIconPNG); err != nil {
 			fmt.Fprintf(os.Stderr, "jinx-desktop: 设置窗口图标失败: %v\n", err)
 		}
 		store.SetWindow(win)

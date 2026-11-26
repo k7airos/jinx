@@ -1212,3 +1212,53 @@ type ServiceOperation struct {
 	Readback      *RuntimeService `json:"readback,omitempty"`
 	Problem       *ServiceProblem `json:"problem,omitempty"`
 }
+
+type ForwardRule struct {
+	ID                string `json:"id"`
+	Enabled           bool   `json:"enabled"`
+	SourceContainerID string `json:"source_container_id"`
+	TargetContainerID string `json:"target_container_id"`
+	DryRun            bool   `json:"dry_run,omitempty"`
+	IncludeEcho       bool   `json:"include_echo,omitempty"`
+	Template          string `json:"template,omitempty"`
+}
+
+func DecodeForwardRules(raw any) []ForwardRule {
+	if raw == nil {
+		return nil
+	}
+	encoded, err := json.Marshal(raw)
+	if err != nil {
+		return nil
+	}
+	var rules []ForwardRule
+	if err := json.Unmarshal(encoded, &rules); err != nil {
+		return nil
+	}
+	return rules
+}
+
+type DirectDeliverInput struct {
+	TargetContainerID string          `json:"target_container_id"`
+	Text              string          `json:"text"`
+	IdempotencyKey    string          `json:"idempotency_key"`
+	Source            string          `json:"source,omitempty"`
+	DryRun            bool            `json:"dry_run,omitempty"`
+	ContentID         string          `json:"content_id,omitempty"`
+	ParentID          string          `json:"parent_id,omitempty"`
+	RootID            string          `json:"root_id,omitempty"`
+	ReplyContext      json.RawMessage `json:"reply_context,omitempty"`
+}
+
+type DirectDeliverResult struct {
+	RunID             string           `json:"run_id"`
+	Replayed          bool             `json:"replayed"`
+	DryRun            bool             `json:"dry_run"`
+	TargetContainerID string           `json:"target_container_id"`
+	Trigger           string           `json:"trigger"`
+	Phase             string           `json:"phase"`
+	Outcome           string           `json:"outcome"`
+	Delivery          string           `json:"delivery"`
+	ReasonCode        string           `json:"reason_code,omitempty"`
+	DeliveryEvidence  DeliveryEvidence `json:"delivery_evidence"`
+}

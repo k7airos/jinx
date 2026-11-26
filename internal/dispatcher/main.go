@@ -518,7 +518,7 @@ func (d *Dispatcher) handleConfig(w http.ResponseWriter, r *http.Request) {
 					}
 					continue
 				}
-				if _, known := ruleFields[key]; !known {
+				if _, known := ruleFields[key]; !known && key != "forward_rules" {
 					err = fmt.Errorf("unknown configuration field %q", key)
 					break
 				}
