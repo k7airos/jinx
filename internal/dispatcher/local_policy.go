@@ -3,6 +3,7 @@ package dispatcher
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -87,10 +88,13 @@ type localPolicy struct {
 	communication     string
 }
 
+// errPolicyFileMode is a fixed, path-free error so callers may surface it.
+var errPolicyFileMode = errors.New("local policy files must be existing regular files with mode 0600 (chmod 600)")
+
 func readPrivateFile(path string) ([]byte, error) {
 	info, err := os.Lstat(path)
 	if err != nil || !info.Mode().IsRegular() || info.Mode().Perm() != 0600 {
-		return nil, fmt.Errorf("local policy files must be regular files with mode 0600")
+		return nil, errPolicyFileMode
 	}
 	file, err := os.Open(path)
 	if err != nil {

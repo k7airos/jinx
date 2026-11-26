@@ -201,6 +201,10 @@ func TestCheckConfigRejectsInvalidInputWithoutPrivateValues(t *testing.T) {
 			if strings.HasPrefix(scenario, "policy_") {
 				expected = "local policy validation failed"
 			}
+			switch scenario {
+			case "policy_missing", "policy_permissions", "policy_symlink":
+				expected = "local policy validation failed: local policy files must be existing regular files with mode 0600 (chmod 600)"
+			}
 			if scenario != "missing" && scenario != "directory" {
 				if err := os.WriteFile(args.config, data, 0600); err != nil {
 					t.Fatal(err)
@@ -240,14 +244,14 @@ func TestCheckConfigLocalPolicyFallbackAndFlagPrecedence(t *testing.T) {
 		}
 	}
 	t.Setenv("JINX_LOCAL_POLICY", filepath.Join(filepath.Dir(args.config), "DEMO_PRIVATE_MISSING_POLICY.json"))
-	if err := dispatcher.ValidateConfigFile(args.config, ""); err == nil || err.Error() != "local policy validation failed" {
+	if err := dispatcher.ValidateConfigFile(args.config, ""); err == nil || !strings.HasPrefix(err.Error(), "local policy validation failed") {
 		t.Fatal("helper ignored environment policy", err)
 	}
 	if err := dispatcher.ValidateConfigFile(args.config, args.localPolicy); err != nil {
 		t.Fatal("helper did not prefer explicit policy", err)
 	}
 	var output strings.Builder
-	if err := run(context.Background(), []string{"-check-config", "-config", args.config}, &output); err == nil || err.Error() != "local policy validation failed" {
+	if err := run(context.Background(), []string{"-check-config", "-config", args.config}, &output); err == nil || !strings.HasPrefix(err.Error(), "local policy validation failed") {
 		t.Fatal("CLI ignored environment policy", err)
 	}
 	if err := run(context.Background(), []string{"-check-config", "-config", args.config, "-local-policy", args.localPolicy}, &output); err != nil || output.String() != "configuration valid\n" {

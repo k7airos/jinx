@@ -13,6 +13,9 @@ func ValidateConfigFile(configPath, localPolicyPath string) error {
 		localPolicyPath = os.Getenv("JINX_LOCAL_POLICY")
 	}
 	policy, err := loadLocalPolicy(localPolicyPath)
+	if errors.Is(err, errPolicyFileMode) {
+		return errors.New("local policy validation failed: " + errPolicyFileMode.Error())
+	}
 	if err != nil {
 		return errors.New("local policy validation failed")
 	}

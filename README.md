@@ -102,42 +102,73 @@ JINX 是一个面向多平台消息接入、场景化智能决策与受控动作
 
 > 环境要求：Go 1.22.5 或兼容更新版本（macOS 推荐附加 `-ldflags=-linkmode=external`）。测试与试用务必使用独立临时运行目录及示例配置，勿直接挂载现役生产状态目录。
 
-### 1. 编译检查与配置校验
+### 0. 准备隔离运行目录
+
+示例配置复制到临时目录后使用，避免运行状态写回仓库。本地策略文件必须是 `0600` 权限的普通文件，而 git clone 下来的文件通常是 `0644`，所以复制后要 `chmod 600`：
 
 ```sh
 cd <PROJECT_ROOT>
+export JINX_RUN=$(mktemp -d)
+cp configs/*.example.json "$JINX_RUN"/
+cp internal/dispatcher/local-policy.example.json "$JINX_RUN"/local-policy.json
+chmod 600 "$JINX_RUN"/*.json
+```
+
+### 1. 编译检查与配置校验
+
+```sh
 go build -ldflags=-linkmode=external ./cmd/...
 
 # 只读校验 Dispatcher 配置与私有本地策略（不创建锁、日志、状态文件，不连接后端）
 go run -ldflags=-linkmode=external ./cmd/jinx-dispatcher \
   -check-config \
-  -config ./configs/dispatcher.example.json \
-  -local-policy ./internal/dispatcher/local-policy.example.json
+  -config "$JINX_RUN"/dispatcher.example.json \
+  -local-policy "$JINX_RUN"/local-policy.json
 ```
 
 ### 2. 单次诊断轮询 B 站评论（`dry_run: true`）
 
-先启动通用 Relay（使用独立临时状态目录）：
+先启动通用 Relay（默认监听 `127.0.0.1:18080`）：
 
 ```sh
-go run -ldflags=-linkmode=external ./cmd/relay -config ./configs/relay.example.json
+go run -ldflags=-linkmode=external ./cmd/relay -config "$JINX_RUN"/relay.example.json
 ```
 
 然后按 `cmd/bilibili-connector/config.example.json` 配置目标视频（默认 `dry_run: true`，需本机已配置 `ego-browser` 并登录有效会话），运行单次只读采集验证：
 
 ```sh
+cp cmd/bilibili-connector/config.example.json "$JINX_RUN"/bilibili.json   # 修改 targets 为自有视频
 go run -ldflags=-linkmode=external ./cmd/bilibili-connector \
-  -config ./cmd/bilibili-connector/config.example.json \
+  -config "$JINX_RUN"/bilibili.json \
   -once
 ```
 
 ### 3. 启动完整新架构调度链与控制面
 
-按 `configs/backends.example.json` 与 `docs/connector-protocol.md` 准备好后端与独立状态目录后，可分别拉起：
+`-execution-config` 指向的是 Execution Engine 的**持久 store 文件**（`{revision, config, receipts}`），不是 `configs/execution-plan.example.json` 那种裸 `Config`。可以直接用 `configs/execution-store.example.json`（第 0 步已复制），也可以先启动 control-plane，让它在 `-state-dir` 内初始化一个空 store，再让 dispatcher 指向同一个文件。
 
-- `cmd/bilibili-connector`（可选 HTTP 动作端点，保持 `dry_run: true` 进行草稿演练）
-- `cmd/control-plane`（传入 `-dispatcher`、`-relay`、`-state-dir`、`-execution-config`、`-backend-definitions` 及可选 `-bilibili-connector` / `-web-connector`）
-- `cmd/jinx-dispatcher`（传入 `-config`、`-execution-config`、`-backends-json` 及可选 `-local-policy`）
+在 Relay 已启动的前提下：
+
+```sh
+cp "$JINX_RUN"/execution-store.example.json "$JINX_RUN"/execution.json
+
+go run -ldflags=-linkmode=external ./cmd/control-plane \
+  -dispatcher http://127.0.0.1:18088 -relay http://127.0.0.1:18080 \
+  -state-dir "$JINX_RUN" -execution-config "$JINX_RUN"/execution.json \
+  -backend-definitions "$JINX_RUN"/backends.example.json
+
+go run -ldflags=-linkmode=external ./cmd/jinx-dispatcher \
+  -config "$JINX_RUN"/dispatcher.example.json \
+  -execution-config "$JINX_RUN"/execution.json \
+  -backends-json "$JINX_RUN"/backends.example.json \
+  -local-policy "$JINX_RUN"/local-policy.json
+```
+
+此时三个服务的 `/health` 应为 `ready`。示例配置没有监控任何群，也没有可用模型后端，所以入站消息会被判定为 `blocked_unmonitored`。要真正生成回复，还需要：
+
+- 按 `configs/backends.example.json` 与 `docs/backend-integration.md` 接入可用的模型后端（Alma personal / text_only 或 Hermes）；
+- 在 relay 的 `group_control` 与 dispatcher 的 `group_whitelist` / `group_rules` 中填入容器 ID；
+- 动作出口：微信 Bridge（私有，不在本仓库），或 `cmd/bilibili-connector` 的 HTTP 动作端点（加 `-bilibili-connector` 传给 control-plane）。
 
 ### 4. 启动原生桌面控制台 (`desktop/`)
 
@@ -159,13 +190,14 @@ go run . -api http://127.0.0.1:8090        # 连接本地回环 control-plane
 
 ```sh
 # 公开核心全量竞态回归（离线、随机 loopback、假模型/假 Bridge/假 launchd）
+# GOPROXY=off 要求本机模块缓存里已有依赖；首次运行请先执行 go mod download
 JINX_LIVE_ALMA=0 GOPROXY=off GOSUMDB=off go test -race -ldflags=-linkmode=external ./... -count=1 -timeout=240s
 
 # 静态检查与全部入口编译
 go vet ./...
 go build -ldflags=-linkmode=external ./cmd/...
 
-# 前端类型契约严格校验
+# 前端类型契约严格校验（需要 TypeScript：npm i -g typescript）
 tsc --strict --noEmit --lib ES2020,DOM \
   internal/console/client-contract.ts \
   internal/console/architecture-client.ts \

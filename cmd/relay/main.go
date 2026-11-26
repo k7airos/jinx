@@ -99,10 +99,14 @@ func run() error {
 		return nil
 	}
 
+	displayAddr := cfg.Server.ListenAddr
+	if strings.HasPrefix(displayAddr, ":") {
+		displayAddr = "localhost" + displayAddr
+	}
 	fmt.Printf("\nHTTP 监听已启动：%s\n", cfg.Server.ListenAddr)
-	fmt.Println("👉 AI 实时 SSE 流地址:        http://localhost" + cfg.Server.ListenAddr + "/api/v1/stream")
-	fmt.Println("👉 AI 实时 WebSocket 流地址:  ws://localhost" + cfg.Server.ListenAddr + "/api/v1/ws")
-	fmt.Println("👉 上游 Webhook 接收地址:     http://localhost" + cfg.Server.ListenAddr + "/api/webhook")
+	fmt.Println("👉 AI 实时 SSE 流地址:        http://" + displayAddr + "/api/v1/stream")
+	fmt.Println("👉 AI 实时 WebSocket 流地址:  ws://" + displayAddr + "/api/v1/ws")
+	fmt.Println("👉 上游 Webhook 接收地址:     http://" + displayAddr + "/api/webhook")
 	fmt.Print("\n按 Ctrl+C 停止服务...\n\n")
 
 	// Wait for termination signal
