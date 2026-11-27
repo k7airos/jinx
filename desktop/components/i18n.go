@@ -528,6 +528,8 @@ func BackendKindLabel(v string) string {
 		return "Alma 直连后端"
 	case "legacy_hermes":
 		return "本地智能体桥接后端"
+	case "agy_cli":
+		return "Antigravity CLI 后端"
 	case "text_only":
 		return "纯文本兜底后端"
 	case "stream_json":

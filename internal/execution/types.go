@@ -41,6 +41,7 @@ const (
 	AlmaPersonal Kind = "alma_personal"
 	TextOnly     Kind = "text_only"
 	LegacyHermes Kind = "legacy_hermes"
+	AgyCLI       Kind = "agy_cli"
 )
 
 type Model struct {
@@ -201,6 +202,7 @@ type BackendOptions struct {
 	PollInterval time.Duration
 	Provider     Provider
 	Hermes       HermesOptions
+	Agy          AgyOptions
 }
 
 type HermesOptions struct {
@@ -210,6 +212,18 @@ type HermesOptions struct {
 	Profile  string
 	Toolsets []string
 	MaxTurns int
+}
+
+type AgyOptions struct {
+	Command              string
+	Dir                  string
+	Env                  []string
+	Agent                string
+	Effort               string
+	Sandbox              bool
+	DisableSlashCommands bool
+	SettingsFile         string
+	AddDirs              []string
 }
 
 type Options struct {

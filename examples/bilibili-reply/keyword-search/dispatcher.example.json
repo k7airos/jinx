@@ -1,0 +1,67 @@
+{
+  "server": {
+    "listen_addr": "127.0.0.1:18088"
+  },
+  "relay": {
+    "stream_url": "http://127.0.0.1:18080/api/v1/stream"
+  },
+  "action_endpoints": {
+    "bilibili": {
+      "url": "http://127.0.0.1:18092",
+      "dry_run": true,
+      "timeout_sec": 30
+    }
+  },
+  "hermes": {
+    "bin_path": "./not-configured-backend",
+    "profile": "demo",
+    "profiles_dir": "./not-configured-profiles",
+    "timeout_sec": 90,
+    "max_concurrent": 2
+  },
+  "rules": {
+    "batch_size": 3,
+    "idle_timeout_sec": 3,
+    "max_batch_wait_sec": 10,
+    "max_message_age_sec": 3600,
+    "laya_url": "",
+    "laya_filter": false,
+    "bypass_decision_on_mention": false,
+    "bot_names": [
+      "DemoJinx"
+    ],
+    "self_sender_ids": [],
+    "group_whitelist": [
+      "bilibili:BV1example0001"
+    ],
+    "group_profiles": {},
+    "group_other_bots": {},
+    "group_rules": {
+      "bilibili:BV1example0001": {
+        "enabled": true,
+        "target_group_id": "bilibili:BV1example0001",
+        "target": "Example Search Video",
+        "hermes_profile": "demo-bili-BV1example0001",
+        "dry_run": true,
+        "mention_only": false,
+        "allowed_types": [
+          1
+        ],
+        "batch_size": 3,
+        "idle_timeout_sec": 3,
+        "max_batch_wait_sec": 10,
+        "max_reply_runes": 180,
+        "reply_window_sec": 60,
+        "max_replies_in_window": 3,
+        "scenario": "public_comment",
+        "response_goal": "结合视频主题回答评论区里的具体问题，不喧宾夺主、不发广告。",
+        "tone": "克制、自然、有信息量"
+      }
+    },
+    "default_profile": "",
+    "keyword_blocklist": [],
+    "ignore_xml": false,
+    "session_max_turns": 0,
+    "session_max_age_sec": 0
+  }
+}

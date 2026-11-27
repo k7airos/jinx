@@ -8,6 +8,7 @@ import (
 	"os"
 	"regexp"
 	"strings"
+	"unicode/utf8"
 
 	"jinx/internal/connector"
 	"jinx/internal/contracts"
@@ -18,6 +19,14 @@ var (
 	oidPattern  = regexp.MustCompile(`^[0-9]{1,24}$`)
 )
 
+var allowedSearchOrders = map[string]bool{
+	"totalrank": true,
+	"pubdate":   true,
+	"click":     true,
+	"dm":        true,
+	"stow":      true,
+}
+
 type EgoConfig struct {
 	BinPath    string `json:"bin_path,omitempty"`
 	TaskSpace  string `json:"task_space,omitempty"`
@@ -26,27 +35,43 @@ type EgoConfig struct {
 }
 
 type TargetConfig struct {
-	ContainerID string `json:"container_id"`
-	Label       string `json:"label,omitempty"`
-	BVID        string `json:"bvid,omitempty"`
-	OID         string `json:"oid,omitempty"`
-	CommentType int    `json:"comment_type,omitempty"`
-	URL         string `json:"url,omitempty"`
-	Enabled     bool   `json:"enabled"`
-	PollLimit   int    `json:"poll_limit,omitempty"`
+	ContainerID   string `json:"container_id"`
+	Label         string `json:"label,omitempty"`
+	BVID          string `json:"bvid,omitempty"`
+	OID           string `json:"oid,omitempty"`
+	CommentType   int    `json:"comment_type,omitempty"`
+	URL           string `json:"url,omitempty"`
+	Enabled       bool   `json:"enabled"`
+	PollLimit     int    `json:"poll_limit,omitempty"`
+	SortMode      string `json:"sort_mode,omitempty"`
+	SubReplyLimit int    `json:"sub_reply_limit,omitempty"`
+}
+
+type SearchTargetConfig struct {
+	Keyword       string `json:"keyword"`
+	Order         string `json:"order,omitempty"`
+	MaxVideos     int    `json:"max_videos,omitempty"`
+	MinComments   int    `json:"min_comments,omitempty"`
+	CommentType   int    `json:"comment_type,omitempty"`
+	PollLimit     int    `json:"poll_limit,omitempty"`
+	SortMode      string `json:"sort_mode,omitempty"`
+	SubReplyLimit int    `json:"sub_reply_limit,omitempty"`
+	Enabled       bool   `json:"enabled"`
 }
 
 type Config struct {
-	ListenAddr       string         `json:"listen_addr"`
-	RelayURL         string         `json:"relay_url"`
-	StateDir         string         `json:"state_dir"`
-	AccountID        string         `json:"account_id,omitempty"`
-	SelfMIDs         []string       `json:"self_mids,omitempty"`
-	DryRun           *bool          `json:"dry_run,omitempty"`
-	PollIntervalSec  int            `json:"poll_interval_sec,omitempty"`
-	MaxInitialAgeSec int            `json:"max_initial_age_sec,omitempty"`
-	Ego              EgoConfig      `json:"ego"`
-	Targets          []TargetConfig `json:"targets"`
+	ListenAddr       string               `json:"listen_addr"`
+	RelayURL         string               `json:"relay_url"`
+	StateDir         string               `json:"state_dir"`
+	AccountID        string               `json:"account_id,omitempty"`
+	SelfMIDs         []string             `json:"self_mids,omitempty"`
+	DryRun           *bool                `json:"dry_run,omitempty"`
+	PollIntervalSec  int                  `json:"poll_interval_sec,omitempty"`
+	MaxInitialAgeSec int                  `json:"max_initial_age_sec,omitempty"`
+	SearchRefreshSec int                  `json:"search_refresh_sec,omitempty"`
+	Ego              EgoConfig            `json:"ego"`
+	Targets          []TargetConfig       `json:"targets"`
+	SearchTargets    []SearchTargetConfig `json:"search_targets,omitempty"`
 }
 
 func (c Config) IsDryRun() bool {
@@ -108,6 +133,12 @@ func (c *Config) NormalizeAndValidate() error {
 	if c.MaxInitialAgeSec < 1 || c.MaxInitialAgeSec > 86400 {
 		return fmt.Errorf("max_initial_age_sec must be 1..86400")
 	}
+	if c.SearchRefreshSec == 0 {
+		c.SearchRefreshSec = 300
+	}
+	if c.SearchRefreshSec < 30 || c.SearchRefreshSec > 86400 {
+		return fmt.Errorf("search_refresh_sec must be 30..86400")
+	}
 	if c.Ego.TaskSpace == "" {
 		c.Ego.TaskSpace = "jinx-bilibili-comments"
 	}
@@ -158,6 +189,15 @@ func (c *Config) NormalizeAndValidate() error {
 		if target.PollLimit < 1 || target.PollLimit > 50 {
 			return fmt.Errorf("targets[%d]: poll_limit must be 1..50", i)
 		}
+		if target.SortMode == "" {
+			target.SortMode = "time"
+		}
+		if target.SortMode != "time" && target.SortMode != "hot" {
+			return fmt.Errorf("targets[%d]: sort_mode must be time or hot", i)
+		}
+		if target.SubReplyLimit < 0 || target.SubReplyLimit > 20 {
+			return fmt.Errorf("targets[%d]: sub_reply_limit must be 0..20", i)
+		}
 		if target.URL == "" {
 			if target.BVID != "" {
 				target.URL = "https://www.bilibili.com/video/" + target.BVID
@@ -170,6 +210,49 @@ func (c *Config) NormalizeAndValidate() error {
 			return fmt.Errorf("targets[%d]: url must point to https://www.bilibili.com/...", i)
 		}
 		c.Targets[i] = target
+	}
+	for i, st := range c.SearchTargets {
+		st.Keyword = strings.TrimSpace(st.Keyword)
+		if n := utf8.RuneCountInString(st.Keyword); n < 1 || n > 100 {
+			return fmt.Errorf("search_targets[%d]: keyword must be 1..100 characters", i)
+		}
+		if st.Order == "" {
+			st.Order = "totalrank"
+		}
+		if !allowedSearchOrders[st.Order] {
+			return fmt.Errorf("search_targets[%d]: invalid order %q", i, st.Order)
+		}
+		if st.MaxVideos == 0 {
+			st.MaxVideos = 1
+		}
+		if st.MaxVideos < 1 || st.MaxVideos > 5 {
+			return fmt.Errorf("search_targets[%d]: max_videos must be 1..5", i)
+		}
+		if st.MinComments < 0 {
+			return fmt.Errorf("search_targets[%d]: min_comments must be >= 0", i)
+		}
+		if st.CommentType == 0 {
+			st.CommentType = 1
+		}
+		if st.CommentType < 1 || st.CommentType > 100 {
+			return fmt.Errorf("search_targets[%d]: invalid comment_type %d", i, st.CommentType)
+		}
+		if st.PollLimit == 0 {
+			st.PollLimit = 20
+		}
+		if st.PollLimit < 1 || st.PollLimit > 50 {
+			return fmt.Errorf("search_targets[%d]: poll_limit must be 1..50", i)
+		}
+		if st.SortMode == "" {
+			st.SortMode = "time"
+		}
+		if st.SortMode != "time" && st.SortMode != "hot" {
+			return fmt.Errorf("search_targets[%d]: sort_mode must be time or hot", i)
+		}
+		if st.SubReplyLimit < 0 || st.SubReplyLimit > 20 {
+			return fmt.Errorf("search_targets[%d]: sub_reply_limit must be 0..20", i)
+		}
+		c.SearchTargets[i] = st
 	}
 	return nil
 }

@@ -705,7 +705,7 @@ export interface ProcessingView {
   agents: { id: ID }[];
   backends: {
     id: ID;
-    kind: 'alma_personal' | 'text_only' | 'legacy_hermes';
+    kind: 'alma_personal' | 'text_only' | 'legacy_hermes' | 'agy_cli';
     available: boolean;
     modelIds: ID[];
     agentBinding: 'branch_only' | 'unverified';

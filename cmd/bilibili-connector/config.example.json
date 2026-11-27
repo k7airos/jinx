@@ -19,7 +19,9 @@
       "bvid": "BV1example0001",
       "comment_type": 1,
       "enabled": true,
-      "poll_limit": 20
+      "poll_limit": 20,
+      "sort_mode": "time",
+      "sub_reply_limit": 5
     }
   ]
 }

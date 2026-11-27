@@ -28,19 +28,28 @@ const (
 )
 
 type fakeBiliChainDriver struct {
-	mu       sync.Mutex
-	ready    bool
-	reason   string
-	viewer   string
-	comments []bilibili.Comment
-	replies  []bilibili.ReplyRequest
-	postFunc func(ctx context.Context, req bilibili.ReplyRequest) (bilibili.ReplyResult, error)
+	mu          sync.Mutex
+	ready       bool
+	reason      string
+	viewer      string
+	searchRes   []bilibili.VideoCandidate
+	comments    []bilibili.Comment
+	replies     []bilibili.ReplyRequest
+	postFunc    func(ctx context.Context, req bilibili.ReplyRequest) (bilibili.ReplyResult, error)
 }
 
 func (f *fakeBiliChainDriver) Health(context.Context) (bool, string) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	return f.ready, f.reason
+}
+
+func (f *fakeBiliChainDriver) SearchVideos(context.Context, bilibili.SearchQuery) ([]bilibili.VideoCandidate, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	out := make([]bilibili.VideoCandidate, len(f.searchRes))
+	copy(out, f.searchRes)
+	return out, nil
 }
 
 func (f *fakeBiliChainDriver) FetchComments(context.Context, bilibili.TargetConfig) ([]bilibili.Comment, string, error) {
@@ -651,4 +660,180 @@ func TestBilibiliConnectorChain(t *testing.T) {
 			}
 		})
 	})
+}
+
+func TestBilibiliKeywordSearchChain(t *testing.T) {
+	root := t.TempDir()
+	client := &http.Client{Timeout: 10 * time.Second}
+	discoveredBVID := "BV1search0001"
+	discoveredContainer := "bilibili:" + discoveredBVID
+
+	rCfg := relayconfig.Config{
+		Server: relayconfig.ServerConfig{ListenAddr: "127.0.0.1:0"},
+		GroupControl: relayconfig.GroupControl{
+			MonitoredGroups: []string{discoveredContainer},
+			ExposedGroups:   []string{discoveredContainer},
+			GroupAliases:    map[string]string{},
+		},
+		Filters: relayconfig.FilterConfig{
+			AllowedTypes:     []int{1},
+			KeywordBlocklist: []string{},
+			RegexBlocklist:   []string{},
+			SenderBlocklist:  []string{},
+		},
+	}
+	rPath := filepath.Join(root, "relay.json")
+	writeJSON(t, rPath, rCfg)
+	manager, err := relayconfig.NewManager(rPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	relayCore := web.NewServer(manager, hub.NewHub(100), filter.NewEngine())
+	relayHandler, err := relayCore.Handler()
+	if err != nil {
+		t.Fatal(err)
+	}
+	relaySrv := httptest.NewServer(relayHandler)
+	t.Cleanup(relaySrv.Close)
+
+	drv := &fakeBiliChainDriver{
+		ready:  true,
+		viewer: biliSelfMID,
+		searchRes: []bilibili.VideoCandidate{
+			{
+				BVID:         discoveredBVID,
+				OID:          "99001",
+				Title:        "AI Agent 实战拆解",
+				Author:       "demo-author",
+				URL:          "https://www.bilibili.com/video/" + discoveredBVID,
+				CommentCount: 12,
+			},
+		},
+		comments: []bilibili.Comment{
+			{
+				RPID:        "81001",
+				OID:         "99001",
+				BVID:        discoveredBVID,
+				VideoTitle:  "AI Agent 实战拆解",
+				CommentType: 1,
+				SenderID:    "222333",
+				SenderName:  "viewer-search",
+				Content:     "这个工作流能本地运行吗？",
+				TimestampMS: time.Now().UnixMilli(),
+			},
+		},
+	}
+
+	connCfg := bilibili.Config{
+		ListenAddr:       "127.0.0.1:0",
+		RelayURL:         relaySrv.URL,
+		StateDir:         filepath.Join(root, "conn-state"),
+		AccountID:        "bilibili-ego",
+		SelfMIDs:         []string{biliSelfMID},
+		DryRun:           connector.BoolPtr(false),
+		PollIntervalSec:  30,
+		MaxInitialAgeSec: 300,
+		SearchTargets: []bilibili.SearchTargetConfig{
+			{Keyword: "AI Agent", Order: "totalrank", MaxVideos: 1, MinComments: 1, Enabled: true},
+		},
+	}
+	conn, err := bilibili.NewConnector(connCfg, drv)
+	if err != nil {
+		t.Fatal(err)
+	}
+	connSrv := httptest.NewServer(conn.Handler())
+	t.Cleanup(connSrv.Close)
+
+	var dCfg dispatcher.Config
+	dCfg.Server.ListenAddr = "127.0.0.1:0"
+	dCfg.Relay.StreamURL = relaySrv.URL + "/api/v1/stream"
+	dCfg.ActionEndpoints = map[string]dispatcher.ActionEndpointConfig{
+		"bilibili": {
+			URL:        connSrv.URL,
+			DryRun:     false,
+			TimeoutSec: 10,
+		},
+	}
+	dCfg.Hermes.BinPath = "/bin/true"
+	dCfg.Hermes.Profile = "bili-search-integration"
+	dCfg.Hermes.ProfilesDir = filepath.Join(root, "profiles")
+	dCfg.Hermes.TimeoutSec = 10
+	dCfg.Hermes.MaxConcurrent = 1
+	dCfg.Rules = dispatcher.Rules{
+		BatchSize:        1,
+		IdleTimeoutSec:   1,
+		MaxBatchWaitSec:  2,
+		MaxMessageAgeSec: 180,
+		SelfSenderIDs:    []string{biliSelfMID},
+		GroupWhitelist:   []string{discoveredContainer},
+		GroupRules: map[string]dispatcher.GroupRule{
+			discoveredContainer: {
+				Enabled:            true,
+				TargetGroupID:      discoveredContainer,
+				Target:             "AI Agent 实战拆解",
+				HermesProfile:      "bili-search-video-1",
+				MentionOnly:        false,
+				AllowedTypes:       []int{1},
+				BatchSize:          1,
+				IdleTimeoutSec:     1,
+				MaxBatchWaitSec:    2,
+				ReplyWindowSec:     60,
+				MaxRepliesInWindow: 5,
+			},
+		},
+	}
+	dPath := filepath.Join(root, "dispatcher.json")
+	writeJSON(t, dPath, dCfg)
+
+	runner := dispatcher.RunFunc(func(context.Context, dispatcher.BackendRequest) (dispatcher.Result, error) {
+		return dispatcher.Result{
+			Text:      "可以完全本地运行，只需要连接本地模型端点。",
+			SessionID: "bili-search-sess-1",
+			Backend:   "Hermes",
+			RunID:     "run-bili-search-1",
+		}, nil
+	})
+	d, err := dispatcher.NewDispatcherWithOptions(dPath, dispatcher.Options{Runner: runner})
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(d.Close)
+	dispSrv := httptest.NewServer(d.Handler())
+	t.Cleanup(dispSrv.Close)
+
+	d.Start()
+	await(t, "dispatcher relay SSE connected", func() bool {
+		health := d.HealthSnapshot()
+		return health.RelayConnected && health.LastEventID != ""
+	})
+
+	stack := &biliChainStack{
+		relay:      relaySrv,
+		connector:  conn,
+		connServer: connSrv,
+		dispatcher: d,
+		dispServer: dispSrv,
+		client:     client,
+	}
+
+	rep, err := conn.PollOnce(context.Background())
+	if err != nil {
+		t.Fatalf("PollOnce failed: %v", err)
+	}
+	if rep.VideosDiscovered != 1 || rep.Forwarded != 1 {
+		t.Fatalf("unexpected search poll report: %+v", rep)
+	}
+
+	run := stack.awaitRunMatch(t, "search video reply confirmed", func(r contracts.Run) bool {
+		return r.Phase == contracts.PhaseTerminal
+	})
+	stack.awaitIdle(t)
+
+	if run.Outcome != contracts.OutcomeReplied || run.Delivery != contracts.DeliveryConfirmed {
+		t.Fatalf("expected OutcomeReplied/DeliveryConfirmed, got %+v", run)
+	}
+	replies := drv.snapshotReplies()
+	if len(replies) != 1 || replies[0].Target.ContainerID != discoveredContainer || replies[0].ParentID != "81001" {
+		t.Fatalf("unexpected search reply call: %+v", replies)
+	}
 }

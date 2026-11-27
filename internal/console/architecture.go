@@ -256,7 +256,7 @@ func publicArchitectureBackends(catalog []execution.Backend) ([]ProcessingBacken
 			return nil, false
 		}
 		seen[backend.ID] = true
-		if backend.Kind != execution.TextOnly && backend.Kind != execution.AlmaPersonal && backend.Kind != execution.LegacyHermes {
+		if backend.Kind != execution.TextOnly && backend.Kind != execution.AlmaPersonal && backend.Kind != execution.LegacyHermes && backend.Kind != execution.AgyCLI {
 			return nil, false
 		}
 		if backend.AgentBinding != "branch_only" && backend.AgentBinding != "unverified" {

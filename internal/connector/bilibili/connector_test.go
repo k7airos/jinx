@@ -17,29 +17,51 @@ import (
 )
 
 type fakeDriver struct {
-	mu       sync.Mutex
-	ready    bool
-	reason   string
-	viewer   string
-	comments []Comment
-	fetchErr error
-	replies  []ReplyRequest
-	postFunc func(ctx context.Context, req ReplyRequest) (ReplyResult, error)
+	mu          sync.Mutex
+	ready       bool
+	reason      string
+	viewer      string
+	comments    []Comment
+	commentsBy  map[string][]Comment
+	searchRes   []VideoCandidate
+	searchCalls []SearchQuery
+	fetchErr    error
+	searchErr   error
+	replies     []ReplyRequest
+	postFunc    func(ctx context.Context, req ReplyRequest) (ReplyResult, error)
 }
 
 func (f *fakeDriver) Health(context.Context) (bool, string) {
 	return f.ready, f.reason
 }
 
-func (f *fakeDriver) FetchComments(context.Context, TargetConfig) ([]Comment, string, error) {
+func (f *fakeDriver) FetchComments(_ context.Context, target TargetConfig) ([]Comment, string, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	if f.fetchErr != nil {
 		return nil, f.viewer, f.fetchErr
 	}
-	out := make([]Comment, len(f.comments))
-	copy(out, f.comments)
+	src := f.comments
+	if f.commentsBy != nil {
+		if specific, ok := f.commentsBy[target.ContainerID]; ok {
+			src = specific
+		}
+	}
+	out := make([]Comment, len(src))
+	copy(out, src)
 	return out, f.viewer, nil
+}
+
+func (f *fakeDriver) SearchVideos(_ context.Context, query SearchQuery) ([]VideoCandidate, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.searchCalls = append(f.searchCalls, query)
+	if f.searchErr != nil {
+		return nil, f.searchErr
+	}
+	out := make([]VideoCandidate, len(f.searchRes))
+	copy(out, f.searchRes)
+	return out, nil
 }
 
 func (f *fakeDriver) PostReply(ctx context.Context, req ReplyRequest) (ReplyResult, error) {
@@ -735,5 +757,221 @@ func TestConnectorHealthStatusAndDryRunControl(t *testing.T) {
 	conn.Handler().ServeHTTP(recAct, reqAct)
 	if recAct.Code != http.StatusOK {
 		t.Fatalf("expected 200 live action after dry_run=false, got %d %s", recAct.Code, recAct.Body.String())
+	}
+}
+
+func TestSearchTargetsConfigAndEgoSearchAndFetch(t *testing.T) {
+	raw := []byte(`{
+		"listen_addr": "127.0.0.1:18092",
+		"relay_url": "http://127.0.0.1:8080",
+		"state_dir": "/tmp/jinx-bili-search-test",
+		"targets": [],
+		"search_targets": [
+			{"keyword": "  AI Agent  ", "enabled": true}
+		]
+	}`)
+	cfg, err := DecodeConfig(raw)
+	if err != nil {
+		t.Fatalf("expected valid search config, got %v", err)
+	}
+	if cfg.SearchRefreshSec != 300 || len(cfg.SearchTargets) != 1 {
+		t.Fatalf("unexpected search defaults: %+v", cfg)
+	}
+	st := cfg.SearchTargets[0]
+	if st.Keyword != "AI Agent" || st.Order != "totalrank" || st.MaxVideos != 1 || st.CommentType != 1 || st.PollLimit != 20 || st.SortMode != "time" {
+		t.Fatalf("unexpected search_target defaults: %+v", st)
+	}
+
+	for _, bad := range []string{
+		`{"listen_addr":"127.0.0.1:18092","relay_url":"http://127.0.0.1:8080","state_dir":"/tmp/s","targets":[{"container_id":"bilibili:BV1example0001","sort_mode":"bad","enabled":true}]}`,
+		`{"listen_addr":"127.0.0.1:18092","relay_url":"http://127.0.0.1:8080","state_dir":"/tmp/s","targets":[{"container_id":"bilibili:BV1example0001","sub_reply_limit":25,"enabled":true}]}`,
+		`{"listen_addr":"127.0.0.1:18092","relay_url":"http://127.0.0.1:8080","state_dir":"/tmp/s","search_refresh_sec":10,"targets":[]}`,
+		`{"listen_addr":"127.0.0.1:18092","relay_url":"http://127.0.0.1:8080","state_dir":"/tmp/s","targets":[],"search_targets":[{"keyword":"   ","enabled":true}]}`,
+		`{"listen_addr":"127.0.0.1:18092","relay_url":"http://127.0.0.1:8080","state_dir":"/tmp/s","targets":[],"search_targets":[{"keyword":"go","order":"invalid","enabled":true}]}`,
+		`{"listen_addr":"127.0.0.1:18092","relay_url":"http://127.0.0.1:8080","state_dir":"/tmp/s","targets":[],"search_targets":[{"keyword":"go","max_videos":9,"enabled":true}]}`,
+	} {
+		if _, err := DecodeConfig([]byte(bad)); err == nil {
+			t.Fatalf("expected DecodeConfig to fail for %s", bad)
+		}
+	}
+
+	// Verify EgoDriver.SearchVideos parsing, deduplication, and error classification.
+	drv := NewEgoDriver(EgoConfig{TaskSpace: "jinx-test", TimeoutSec: 10})
+	var capturedSearchScript string
+	drv.runScript = func(_ context.Context, script string) ([]byte, error) {
+		capturedSearchScript = script
+		return []byte(egoResultMarker + `{"ok":true,"videos":[` +
+			`{"bvid":"BV1example0001","oid":"111","title":"Agent Demo","author":"alice","author_mid":"12","comment_count":8,"play_count":1000},` +
+			`{"bvid":"BV1example0001","oid":"111","title":"Duplicate","author":"alice"},` +
+			`{"bvid":"not-a-bvid","oid":"222","title":"Invalid"},` +
+			`{"bvid":"BV1example0002","oid":"333","title":"Second Video","author":"bob","comment_count":3}` +
+			`]}`), nil
+	}
+	videos, err := drv.SearchVideos(context.Background(), SearchQuery{Keyword: "AI Agent", Order: "pubdate", Limit: 5})
+	if err != nil {
+		t.Fatalf("SearchVideos error: %v", err)
+	}
+	if len(videos) != 2 || videos[0].BVID != "BV1example0001" || videos[0].URL != "https://www.bilibili.com/video/BV1example0001" || videos[1].BVID != "BV1example0002" {
+		t.Fatalf("unexpected search results: %+v", videos)
+	}
+	if !strings.Contains(capturedSearchScript, "search/type") || !strings.Contains(capturedSearchScript, "domcontentloaded") {
+		t.Fatalf("unexpected search script content")
+	}
+
+	// Rate limit (-352) maps to rate_limited.
+	drv.runScript = func(context.Context, string) ([]byte, error) {
+		return []byte(egoResultMarker + `{"ok":false,"code":-352,"error_code":"bilibili_api_error","detail":"risk control"}`), nil
+	}
+	if _, err := drv.SearchVideos(context.Background(), SearchQuery{Keyword: "AI Agent"}); err == nil || !strings.Contains(err.Error(), "rate_limited") {
+		t.Fatalf("expected rate_limited error, got %v", err)
+	}
+
+	// FetchComments preserves video_title and handles sub_reply_limit script generation.
+	var capturedFetchScript string
+	drv.runScript = func(_ context.Context, script string) ([]byte, error) {
+		capturedFetchScript = script
+		return []byte(egoResultMarker + `{"ok":true,"oid":"88001","video_title":"Demo Title","viewer_mid":"5001","comments":[{"rpid":"101","sender_id":"2001","sender_name":"alice","content":"hello","timestamp_ms":1700000001000}]}`), nil
+	}
+	comments, _, err := drv.FetchComments(context.Background(), TargetConfig{
+		ContainerID:   "bilibili:BV1example0001",
+		BVID:          "BV1example0001",
+		CommentType:   1,
+		URL:           "https://www.bilibili.com/video/BV1example0001",
+		PollLimit:     20,
+		SortMode:      "hot",
+		SubReplyLimit: 5,
+	})
+	if err != nil || len(comments) != 1 || comments[0].VideoTitle != "Demo Title" {
+		t.Fatalf("unexpected FetchComments result: %+v err=%v", comments, err)
+	}
+	if !strings.Contains(capturedFetchScript, "/x/v2/reply/reply") || !strings.Contains(capturedFetchScript, "/x/web-interface/view") {
+		t.Fatalf("fetch script missing sub-reply or view fallback endpoints")
+	}
+}
+
+func TestConnectorSearchDiscoverySkipRelayAndRelayBlocked(t *testing.T) {
+	now := time.Unix(1700001000, 0).UTC()
+	var blockMode atomic.Int32 // 0=allow, 1=blocked_unmonitored, 2=blocked_keyword
+	var pushed []connector.InboundPayload
+	var mu sync.Mutex
+
+	relay := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var payload connector.InboundPayload
+		if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+		mu.Lock()
+		pushed = append(pushed, payload)
+		mu.Unlock()
+		resp := connector.RelayPushResponse{Status: "ok", ID: payload.ID, Allowed: true, Action: "forward"}
+		switch blockMode.Load() {
+		case 1:
+			resp.Allowed = false
+			resp.Action = "blocked_unmonitored"
+		case 2:
+			resp.Allowed = false
+			resp.Action = "blocked_keyword"
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(resp)
+	}))
+	defer relay.Close()
+
+	drv := &fakeDriver{
+		ready:  true,
+		viewer: "5001",
+		searchRes: []VideoCandidate{
+			{BVID: "BV1zero000001", OID: "100", Title: "Zero Comments", CommentCount: 0, URL: "https://www.bilibili.com/video/BV1zero000001"},
+			{BVID: "BV1found00001", OID: "200", Title: "Found Video", CommentCount: 5, URL: "https://www.bilibili.com/video/BV1found00001"},
+		},
+		commentsBy: map[string][]Comment{
+			"bilibili:BV1found00001": {
+				{
+					RPID:        "c-found-1",
+					OID:         "200",
+					BVID:        "BV1found00001",
+					VideoTitle:  "Found Video",
+					CommentType: 1,
+					SenderID:    "3001",
+					SenderName:  "viewer",
+					Content:     "real question",
+					TimestampMS: now.Add(-5 * time.Second).UnixMilli(),
+				},
+			},
+		},
+	}
+
+	cfg := Config{
+		ListenAddr:       "127.0.0.1:0",
+		RelayURL:         relay.URL,
+		StateDir:         t.TempDir(),
+		DryRun:           connector.BoolPtr(false),
+		SearchRefreshSec: 300,
+		SearchTargets: []SearchTargetConfig{
+			{Keyword: "AI Agent", Order: "totalrank", MaxVideos: 1, MinComments: 1, Enabled: true},
+		},
+	}
+	conn, err := NewConnector(cfg, drv)
+	if err != nil {
+		t.Fatal(err)
+	}
+	conn.now = func() time.Time { return now }
+
+	// 1. SkipRelay inspects without pushing to relay or seeding cursor.
+	repSkip, err := conn.PollOnceWithOptions(context.Background(), PollOptions{SkipRelay: true})
+	if err != nil {
+		t.Fatalf("PollOnceWithOptions(SkipRelay) failed: %v", err)
+	}
+	if repSkip.VideosDiscovered != 1 || repSkip.TargetsPolled != 1 || repSkip.CommentsFetched != 1 || repSkip.Forwarded != 0 {
+		t.Fatalf("unexpected SkipRelay report: %+v", repSkip)
+	}
+	mu.Lock()
+	if len(pushed) != 0 {
+		mu.Unlock()
+		t.Fatalf("SkipRelay should not push to relay, got %d", len(pushed))
+	}
+	mu.Unlock()
+	if conn.cursors.HasSeen("bilibili:BV1found00001", "c-found-1") {
+		t.Fatal("SkipRelay should not mutate cursor")
+	}
+
+	// 2. blocked_unmonitored leaves item un-seen so fixing relay config allows retry.
+	blockMode.Store(1)
+	repBlocked, err := conn.PollOnce(context.Background())
+	if err != nil || repBlocked.RelayBlocked != 1 || repBlocked.Forwarded != 0 {
+		t.Fatalf("unexpected blocked_unmonitored report: %+v err=%v", repBlocked, err)
+	}
+	if conn.cursors.HasSeen("bilibili:BV1found00001", "c-found-1") {
+		t.Fatal("blocked_unmonitored should not mark cursor seen")
+	}
+
+	// 3. Allowed push succeeds and marks cursor seen.
+	blockMode.Store(0)
+	repAllow, err := conn.PollOnce(context.Background())
+	if err != nil || repAllow.Forwarded != 1 || repAllow.RelayBlocked != 0 {
+		t.Fatalf("expected successful forward after unblocking, got %+v err=%v", repAllow, err)
+	}
+	if !conn.cursors.HasSeen("bilibili:BV1found00001", "c-found-1") {
+		t.Fatal("expected cursor seen after forward")
+	}
+
+	// 4. Health Status() includes dynamically discovered video, and Execute() can reply to it.
+	snap := conn.Status()
+	if len(snap.Targets) != 1 || snap.Targets[0].ContainerID != "bilibili:BV1found00001" {
+		t.Fatalf("unexpected status targets: %+v", snap.Targets)
+	}
+	execResp, err := conn.Execute(context.Background(), connector.ActionRequest{
+		ActionID:     "act-search-1",
+		Text:         "reply to discovered video",
+		ReplyContext: json.RawMessage(`{"oid":"200","bvid":"BV1found00001","comment_type":1}`),
+		Target: connector.ActionTarget{
+			Platform:    "bilibili",
+			ContainerID: "bilibili:BV1found00001",
+			ContentID:   "c-found-1",
+		},
+	})
+	if err != nil || execResp.Status != "confirmed" {
+		t.Fatalf("Execute on discovered video failed: %+v err=%v", execResp, err)
 	}
 }

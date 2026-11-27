@@ -7,7 +7,7 @@ export type Result<T> =
 export type Capability = 'text_generation' | 'auto_text_delivery' | 'web_search'
   | 'web_fetch' | 'host_write' | 'reminder_sync' | 'host_tools' | 'remote_delegation';
 export type Enforcement = 'hard' | 'soft' | 'host' | 'unverified';
-export type BackendKind = 'alma_personal' | 'text_only' | 'legacy_hermes';
+export type BackendKind = 'alma_personal' | 'text_only' | 'legacy_hermes' | 'agy_cli';
 
 export interface Permission {
   capability: Capability;

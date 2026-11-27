@@ -1,0 +1,30 @@
+{
+  "listen_addr": "127.0.0.1:18092",
+  "relay_url": "http://127.0.0.1:18080",
+  "state_dir": "./state-bilibili-connector",
+  "account_id": "bilibili-ego",
+  "self_mids": [],
+  "dry_run": true,
+  "poll_interval_sec": 30,
+  "max_initial_age_sec": 3600,
+  "search_refresh_sec": 300,
+  "ego": {
+    "task_space": "jinx-bilibili-comments",
+    "timeout_sec": 45,
+    "keep_page": false
+  },
+  "targets": [],
+  "search_targets": [
+    {
+      "keyword": "AI Agent",
+      "order": "totalrank",
+      "max_videos": 1,
+      "min_comments": 1,
+      "comment_type": 1,
+      "poll_limit": 20,
+      "sort_mode": "time",
+      "sub_reply_limit": 5,
+      "enabled": true
+    }
+  ]
+}

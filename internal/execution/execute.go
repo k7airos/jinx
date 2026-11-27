@@ -199,6 +199,8 @@ func (engine *Engine) run(ctx context.Context, option BackendOptions, attempt Ro
 		return executionOutput{text: text, remote: "not_applicable"}, err
 	case LegacyHermes:
 		return runHermes(ctx, option.Hermes, attempt.ModelID, request, boundary)
+	case AgyCLI:
+		return runAgy(ctx, option.Agy, attempt.ModelID, attempt.TimeoutSec, request, boundary)
 	}
 	return executionOutput{}, failure("unsupported", "backend_kind")
 }

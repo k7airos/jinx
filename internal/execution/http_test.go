@@ -1,6 +1,7 @@
 package execution
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -164,5 +165,126 @@ func TestStrictConfigRejectsOversize(t *testing.T) {
 	_, err := DecodeConfig(io.LimitReader(strings.NewReader(strings.Repeat(" ", maxConfigBytes+1)), maxConfigBytes+1))
 	if Code(err) != "too_large" {
 		t.Fatal(err)
+	}
+}
+
+func TestAgyCLIRunsStreamJSONAndCapturesConversationID(t *testing.T) {
+	directory := t.TempDir()
+	command := filepath.Join(directory, "demo-agy")
+	argsPath := filepath.Join(directory, "args")
+	inputPath := filepath.Join(directory, "stdin")
+	settingsPath := filepath.Join(directory, "settings.json")
+	if err := os.WriteFile(settingsPath, []byte(`{}`), 0600); err != nil {
+		t.Fatal(err)
+	}
+	script := "#!/bin/sh\nprintf '%s\\n' \"$@\" > \"$DEMO_ARGS\"\ncat > \"$DEMO_INPUT\"\nprintf '%s\\n' " +
+		"'{\"event\":\"init\",\"conversation_id\":\"conv-agy-1\"}' " +
+		"'{\"event\":\"step_update\",\"step_update\":{\"state\":\"DONE\",\"step_type\":\"agent_response\",\"text_delta\":\"agy reply\"}}' " +
+		"'{\"event\":\"result\",\"result\":{\"conversation_id\":\"conv-agy-1\",\"status\":\"SUCCESS\",\"response\":\"agy reply\\n\"}}'\n"
+	if err := os.WriteFile(command, []byte(script), 0700); err != nil {
+		t.Fatal(err)
+	}
+	option := BackendOptions{
+		ID:     "agy",
+		Kind:   AgyCLI,
+		Models: []Model{{ID: "gemini-4-hydrogen-low", Label: "Hydrogen Low"}},
+		Agy: AgyOptions{
+			Command:              command,
+			Dir:                  directory,
+			Env:                  []string{"DEMO_ARGS=" + argsPath, "DEMO_INPUT=" + inputPath},
+			Agent:                "comment-helper",
+			Effort:               "low",
+			Sandbox:              true,
+			DisableSlashCommands: true,
+			SettingsFile:         settingsPath,
+			AddDirs:              []string{directory},
+		},
+	}
+	engine := openTest(t, option)
+	config := testConfig("agy", true)
+	group := config.Groups["demo-group"]
+	group.Primary.ModelID = "gemini-4-hydrogen-low"
+	group.Primary.TimeoutSec = 15
+	config.Groups["demo-group"] = group
+	publish(t, engine, config, "initial")
+
+	result, err := executeTest(engine, "trace")
+	if err != nil || result.Text != "agy reply" || result.Kind != AgyCLI || len(result.Attempts) != 1 || result.Attempts[0].ExternalID != "conv-agy-1" {
+		t.Fatal(result, err)
+	}
+	data, _ := os.ReadFile(argsPath)
+	expected := "--input-format\nstream-json\n--output-format\nstream-json\n--model\ngemini-4-hydrogen-low\n--print-timeout\n15s\n--effort\nlow\n--agent\ncomment-helper\n--sandbox\n--disable-slash-commands\n--settings\n" + settingsPath + "\n--add-dir\n" + directory + "\n"
+	if string(data) != expected {
+		t.Fatalf("unexpected agy args %q", data)
+	}
+	input, _ := os.ReadFile(inputPath)
+	var envelope struct {
+		Event   string `json:"event"`
+		Message struct {
+			Content string `json:"content"`
+		} `json:"message"`
+	}
+	if err := json.Unmarshal(bytes.TrimSpace(input), &envelope); err != nil || envelope.Event != "user" || envelope.Message.Content != "fictional prompt" {
+		t.Fatalf("unexpected stdin payload %q err=%v", input, err)
+	}
+	noTools := testConfig("agy", false)
+	noToolsGroup := noTools.Groups["demo-group"]
+	noToolsGroup.Primary.ModelID = "gemini-4-hydrogen-low"
+	noTools.Groups["demo-group"] = noToolsGroup
+	if err := engine.Validate(context.Background(), noTools); Code(err) != "policy_mismatch" {
+		t.Fatal(err)
+	}
+}
+
+func TestAgyCLIUncertainExecutionBlocksFallback(t *testing.T) {
+	for _, scenario := range []struct {
+		name   string
+		script string
+		reason string
+		remote string
+		safe   bool
+	}{
+		{"failed", "#!/bin/sh\nprintf 'PRIVATE STDERR' >&2\nexit 1\n", "backend_failed", "unknown", false},
+		{"timeout", "#!/bin/sh\nexec sleep 30\n", "timeout", "unknown", false},
+		{"error_result", "#!/bin/sh\nprintf '%s\\n' '{\"event\":\"result\",\"result\":{\"conversation_id\":\"conv-agy-err\",\"status\":\"ERROR\",\"response\":\"\",\"error\":\"PRIVATE ERROR\"}}'\n", "invalid_output", "unknown", false},
+		{"no_result", "#!/bin/sh\nprintf 'PRIVATE OUTPUT'\n", "invalid_output", "unknown", false},
+		{"not_started", "", "backend_failed", "not_applicable", true},
+	} {
+		t.Run(scenario.name, func(t *testing.T) {
+			directory := t.TempDir()
+			command := filepath.Join(directory, "demo-agy")
+			if scenario.script != "" {
+				if err := os.WriteFile(command, []byte(scenario.script), 0700); err != nil {
+					t.Fatal(err)
+				}
+			}
+			option := BackendOptions{
+				ID:     "agy",
+				Kind:   AgyCLI,
+				Models: []Model{{ID: "demo-provider:demo-model", Label: "Fictional model"}},
+				Agy:    AgyOptions{Command: command, Dir: directory, Sandbox: true},
+			}
+			var fallbackCalls atomic.Int32
+			engine := openTest(t, option, textOption("text", providerFunc(func(context.Context, ModelRequest) (string, error) {
+				fallbackCalls.Add(1)
+				return "safe fallback", nil
+			})))
+			config := testConfig("agy", true)
+			group := config.Groups["demo-group"]
+			group.Fallbacks = []RouteAttempt{testAttempt("text")}
+			config.Groups["demo-group"] = group
+			publish(t, engine, config, "initial")
+			result, err := executeTest(engine, "trace")
+			if scenario.safe {
+				if err != nil || !result.Fallback || result.Text != "safe fallback" || len(result.Attempts) != 2 || fallbackCalls.Load() != 1 {
+					t.Fatal(result, err)
+				}
+			} else if Code(err) != "execution_uncertain" || result.Fallback || result.Text != "" || len(result.Attempts) != 1 || fallbackCalls.Load() != 0 {
+				t.Fatal(result, err)
+			}
+			if result.Attempts[0].RemoteExecution != scenario.remote || result.Attempts[0].Reason != scenario.reason || strings.Contains(fmt.Sprint(result, err), "PRIVATE") {
+				t.Fatal(result, err)
+			}
+		})
 	}
 }

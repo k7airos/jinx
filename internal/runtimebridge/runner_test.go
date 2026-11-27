@@ -135,7 +135,7 @@ func TestResultCompatibilityPreservesExecutionIdentity(t *testing.T) {
 	for _, scenario := range []struct {
 		kind    execution.Kind
 		backend string
-	}{{execution.AlmaPersonal, "Alma"}, {execution.TextOnly, "Alma"}, {execution.LegacyHermes, "Hermes"}} {
+	}{{execution.AlmaPersonal, "Alma"}, {execution.TextOnly, "Alma"}, {execution.LegacyHermes, "Hermes"}, {execution.AgyCLI, "Agy"}} {
 		result := ConvertResult(execution.Result{Kind: scenario.kind, RunID: "trace", Text: "reply", Fallback: true, FallbackReason: "timeout"})
 		if result.Backend != scenario.backend || result.RunID != "trace" || result.SessionID != "execution:trace" || !result.Fallback || result.FallbackReason != "timeout" || result.Text != "reply" {
 			t.Fatal(result)

@@ -15,13 +15,20 @@ import (
 	"jinx/internal/contracts"
 )
 
+type PollOptions struct {
+	SkipRelay bool
+}
+
 type PollReport struct {
+	VideosDiscovered  int
 	TargetsPolled     int
 	CommentsFetched   int
 	Forwarded         int
+	RelayBlocked      int
 	SkippedSeen       int
 	SkippedHistorical int
 	PushErrors        int
+	FetchedComments   []Comment `json:"-"`
 }
 
 type replyContextPayload struct {
@@ -42,10 +49,12 @@ type Connector struct {
 	idem              *connector.IdempotencyStore
 	server            *connector.Server
 	targets           map[string]TargetConfig
+	staticTargets     map[string]bool
 	selfSet           map[string]bool
 	pollMu            sync.Mutex
 	statusMu          sync.RWMutex
 	resolvedOIDs      map[string]string
+	lastSearchAt      time.Time
 	lastPollAt        *time.Time
 	lastPollErrorCode string
 	now               func() time.Time
@@ -71,9 +80,11 @@ func NewConnector(cfg Config, driver Driver) (*Connector, error) {
 		return nil, err
 	}
 	targets := make(map[string]TargetConfig, len(cfg.Targets))
+	staticTargets := make(map[string]bool, len(cfg.Targets))
 	resolvedOIDs := make(map[string]string, len(cfg.Targets))
 	for _, t := range cfg.Targets {
 		targets[t.ContainerID] = t
+		staticTargets[t.ContainerID] = true
 		if t.OID != "" {
 			resolvedOIDs[t.ContainerID] = t.OID
 		}
@@ -83,15 +94,16 @@ func NewConnector(cfg Config, driver Driver) (*Connector, error) {
 		selfSet[mid] = true
 	}
 	c := &Connector{
-		cfg:          cfg,
-		driver:       driver,
-		relay:        relayClient,
-		cursors:      cursors,
-		idem:         idem,
-		targets:      targets,
-		resolvedOIDs: resolvedOIDs,
-		selfSet:      selfSet,
-		now:          time.Now,
+		cfg:           cfg,
+		driver:        driver,
+		relay:         relayClient,
+		cursors:       cursors,
+		idem:          idem,
+		targets:       targets,
+		staticTargets: staticTargets,
+		resolvedOIDs:  resolvedOIDs,
+		selfSet:       selfSet,
+		now:           time.Now,
 	}
 	c.server = connector.NewServer(connector.ServerOptions{
 		Executor: c,
@@ -114,9 +126,21 @@ func (c *Connector) Health(ctx context.Context) (bool, string) {
 	return c.driver.Health(ctx)
 }
 
+func (c *Connector) SearchVideos(ctx context.Context, query SearchQuery) ([]VideoCandidate, error) {
+	searcher, ok := c.driver.(VideoSearcher)
+	if !ok {
+		return nil, fmt.Errorf("bilibili driver does not support video search")
+	}
+	searchCtx, cancel := context.WithTimeout(ctx, time.Duration(c.cfg.Ego.TimeoutSec)*time.Second)
+	defer cancel()
+	return searcher.SearchVideos(searchCtx, query)
+}
+
 func (c *Connector) Status() connector.StatusSnapshot {
-	targets := make([]connector.HealthTarget, 0, len(c.cfg.Targets))
-	for _, t := range c.cfg.Targets {
+	c.statusMu.RLock()
+	defer c.statusMu.RUnlock()
+	targets := make([]connector.HealthTarget, 0, len(c.targets))
+	for _, t := range c.targets {
 		targets = append(targets, connector.HealthTarget{
 			ContainerID: t.ContainerID,
 			Label:       t.Label,
@@ -124,8 +148,6 @@ func (c *Connector) Status() connector.StatusSnapshot {
 		})
 	}
 	sort.Slice(targets, func(i, j int) bool { return targets[i].ContainerID < targets[j].ContainerID })
-	c.statusMu.RLock()
-	defer c.statusMu.RUnlock()
 	var polledAt *time.Time
 	if c.lastPollAt != nil {
 		copied := *c.lastPollAt
@@ -146,7 +168,131 @@ func (c *Connector) recordPollStatus(errCode string) {
 	c.statusMu.Unlock()
 }
 
+func (c *Connector) snapshotEnabledTargets() []TargetConfig {
+	c.statusMu.RLock()
+	defer c.statusMu.RUnlock()
+	out := make([]TargetConfig, 0, len(c.targets))
+	for _, t := range c.targets {
+		if t.Enabled {
+			out = append(out, t)
+		}
+	}
+	sort.Slice(out, func(i, j int) bool { return out[i].ContainerID < out[j].ContainerID })
+	return out
+}
+
+func (c *Connector) hasEnabledSearchTargets() bool {
+	for _, st := range c.cfg.SearchTargets {
+		if st.Enabled {
+			return true
+		}
+	}
+	return false
+}
+
+func (c *Connector) resolveSearchTargets(ctx context.Context) (int, error) {
+	if !c.hasEnabledSearchTargets() {
+		return 0, nil
+	}
+	now := c.now()
+	c.statusMu.RLock()
+	lastSearch := c.lastSearchAt
+	c.statusMu.RUnlock()
+	if !lastSearch.IsZero() && now.Sub(lastSearch) < time.Duration(c.cfg.SearchRefreshSec)*time.Second {
+		return 0, nil
+	}
+
+	searcher, ok := c.driver.(VideoSearcher)
+	if !ok {
+		return 0, fmt.Errorf("search_targets configured but driver does not support video search")
+	}
+
+	discovered := 0
+	var firstErr error
+	for _, st := range c.cfg.SearchTargets {
+		if !st.Enabled {
+			continue
+		}
+		if ctx.Err() != nil {
+			if firstErr == nil {
+				firstErr = ctx.Err()
+			}
+			break
+		}
+		limit := st.MaxVideos * 3
+		if limit < 5 {
+			limit = 5
+		}
+		if limit > 20 {
+			limit = 20
+		}
+		searchCtx, cancel := context.WithTimeout(ctx, time.Duration(c.cfg.Ego.TimeoutSec)*time.Second)
+		candidates, err := searcher.SearchVideos(searchCtx, SearchQuery{
+			Keyword: st.Keyword,
+			Order:   st.Order,
+			Limit:   limit,
+		})
+		cancel()
+		if err != nil {
+			if firstErr == nil {
+				firstErr = fmt.Errorf("search %q: %w", st.Keyword, err)
+			}
+			continue
+		}
+
+		addedForRule := 0
+		c.statusMu.Lock()
+		for _, cand := range candidates {
+			if addedForRule >= st.MaxVideos {
+				break
+			}
+			if cand.CommentCount < st.MinComments {
+				continue
+			}
+			cid := string(contracts.PlatformBilibili) + ":" + cand.BVID
+			if existing, exists := c.targets[cid]; exists {
+				if cand.OID != "" && existing.OID == "" {
+					existing.OID = cand.OID
+					c.targets[cid] = existing
+					c.resolvedOIDs[cid] = cand.OID
+				}
+				if existing.Enabled && !c.staticTargets[cid] {
+					addedForRule++
+				}
+				continue
+			}
+			c.targets[cid] = TargetConfig{
+				ContainerID:   cid,
+				Label:         cand.Title,
+				BVID:          cand.BVID,
+				OID:           cand.OID,
+				CommentType:   st.CommentType,
+				URL:           cand.URL,
+				Enabled:       true,
+				PollLimit:     st.PollLimit,
+				SortMode:      st.SortMode,
+				SubReplyLimit: st.SubReplyLimit,
+			}
+			if cand.OID != "" {
+				c.resolvedOIDs[cid] = cand.OID
+			}
+			addedForRule++
+			discovered++
+		}
+		c.statusMu.Unlock()
+	}
+
+	c.statusMu.Lock()
+	c.lastSearchAt = c.now()
+	c.statusMu.Unlock()
+	return discovered, firstErr
+}
+
 func (c *Connector) PollOnce(ctx context.Context) (PollReport, error) {
+	return c.PollOnceWithOptions(ctx, PollOptions{})
+}
+
+func (c *Connector) PollOnceWithOptions(ctx context.Context, opts PollOptions) (PollReport, error) {
 	c.pollMu.Lock()
 	defer c.pollMu.Unlock()
 
@@ -155,10 +301,15 @@ func (c *Connector) PollOnce(ctx context.Context) (PollReport, error) {
 	var errCode string
 	cutoffMS := c.now().Add(-time.Duration(c.cfg.MaxInitialAgeSec) * time.Second).UnixMilli()
 
-	for _, target := range c.cfg.Targets {
-		if !target.Enabled {
-			continue
-		}
+	discovered, searchErr := c.resolveSearchTargets(ctx)
+	report.VideosDiscovered = discovered
+	if searchErr != nil {
+		firstErr = searchErr
+		errCode = "search_failed"
+	}
+
+	targets := c.snapshotEnabledTargets()
+	for _, target := range targets {
 		if ctx.Err() != nil {
 			if firstErr == nil {
 				firstErr = ctx.Err()
@@ -182,6 +333,31 @@ func (c *Connector) PollOnce(ctx context.Context) (PollReport, error) {
 		targetPushFailed := false
 
 		for _, comment := range comments {
+			report.FetchedComments = append(report.FetchedComments, comment)
+
+			oid := comment.OID
+			if oid == "" {
+				oid = target.OID
+			}
+			if target.OID == "" && oidPattern.MatchString(oid) {
+				c.statusMu.Lock()
+				c.resolvedOIDs[target.ContainerID] = oid
+				c.statusMu.Unlock()
+			}
+			if target.Label == "" && comment.VideoTitle != "" {
+				target.Label = comment.VideoTitle
+				c.statusMu.Lock()
+				if cur, ok := c.targets[target.ContainerID]; ok && cur.Label == "" {
+					cur.Label = comment.VideoTitle
+					c.targets[target.ContainerID] = cur
+				}
+				c.statusMu.Unlock()
+			}
+
+			if opts.SkipRelay {
+				continue
+			}
+
 			if c.cursors.HasSeen(target.ContainerID, comment.RPID) {
 				report.SkippedSeen++
 				continue
@@ -195,15 +371,6 @@ func (c *Connector) PollOnce(ctx context.Context) (PollReport, error) {
 				continue
 			}
 
-			oid := comment.OID
-			if oid == "" {
-				oid = target.OID
-			}
-			if target.OID == "" && oidPattern.MatchString(oid) {
-				c.statusMu.Lock()
-				c.resolvedOIDs[target.ContainerID] = oid
-				c.statusMu.Unlock()
-			}
 			commentType := comment.CommentType
 			if commentType == 0 {
 				commentType = target.CommentType
@@ -250,12 +417,25 @@ func (c *Connector) PollOnce(ctx context.Context) (PollReport, error) {
 			if payload.Timestamp <= 0 {
 				payload.Timestamp = c.now().UnixMilli()
 			}
-			if _, err := c.relay.Push(ctx, payload); err != nil {
+			pushResp, err := c.relay.Push(ctx, payload)
+			if err != nil {
 				targetPushFailed = true
 				report.PushErrors++
 				if firstErr == nil {
 					firstErr = fmt.Errorf("push %s/%s: %w", target.ContainerID, comment.RPID, err)
 					errCode = "relay_push_failed"
+				}
+				continue
+			}
+			if !pushResp.Allowed {
+				report.RelayBlocked++
+				if pushResp.Action == "blocked_unmonitored" || pushResp.Action == "blocked_unexposed" {
+					targetPushFailed = true
+					continue
+				}
+				if err := c.cursors.MarkSeen(target.ContainerID, comment.RPID, payload.Timestamp); err != nil && firstErr == nil {
+					firstErr = err
+					errCode = "cursor_error"
 				}
 				continue
 			}
@@ -266,7 +446,7 @@ func (c *Connector) PollOnce(ctx context.Context) (PollReport, error) {
 			}
 		}
 
-		if !seeded && !targetPushFailed {
+		if !opts.SkipRelay && !seeded && !targetPushFailed {
 			if err := c.cursors.MarkSeeded(target.ContainerID); err != nil && firstErr == nil {
 				firstErr = err
 				errCode = "cursor_error"
@@ -278,7 +458,9 @@ func (c *Connector) PollOnce(ctx context.Context) (PollReport, error) {
 }
 
 func (c *Connector) Execute(ctx context.Context, req connector.ActionRequest) (connector.ActionResponse, error) {
+	c.statusMu.RLock()
 	target, ok := c.targets[req.Target.ContainerID]
+	c.statusMu.RUnlock()
 	if !ok || !target.Enabled {
 		return connector.ActionResponse{
 			ActionID:   req.ActionID,

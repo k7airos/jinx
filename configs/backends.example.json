@@ -23,6 +23,22 @@
       ],
       "almaURL": "http://127.0.0.1:23001",
       "providerID": "demo-provider"
+    },
+    {
+      "id": "demo-agy",
+      "kind": "agy_cli",
+      "models": [
+        {
+          "id": "demo-agy-model",
+          "label": "Local agy CLI model slug"
+        }
+      ],
+      "agy": {
+        "command": "/path/to/agy",
+        "dir": "/path/to/agy-workspace",
+        "sandbox": true,
+        "disableSlashCommands": false
+      }
     }
   ]
 }

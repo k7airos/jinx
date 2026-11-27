@@ -24,6 +24,15 @@ func loopbackURL(raw string) (string, error) {
 	return strings.TrimSuffix(raw, "/"), nil
 }
 
+var allowedAgyEfforts = map[string]bool{
+	"":       true,
+	"low":    true,
+	"medium": true,
+	"high":   true,
+	"xhigh":  true,
+	"max":    true,
+}
+
 func validateBackend(option BackendOptions) error {
 	if !tokenPattern.MatchString(option.ID) || len(option.Models) == 0 {
 		return failure("validation", "backend")
@@ -51,6 +60,20 @@ func validateBackend(option BackendOptions) error {
 				return failure("validation", "hermes_toolsets")
 			}
 			seenTools[tool] = true
+		}
+	case AgyCLI:
+		if !filepath.IsAbs(option.Agy.Command) ||
+			(option.Agy.Dir != "" && !filepath.IsAbs(option.Agy.Dir)) ||
+			(option.Agy.Agent != "" && !tokenPattern.MatchString(option.Agy.Agent)) ||
+			!allowedAgyEfforts[option.Agy.Effort] ||
+			(option.Agy.SettingsFile != "" && !filepath.IsAbs(option.Agy.SettingsFile)) ||
+			len(option.Agy.AddDirs) > 8 {
+			return failure("validation", "agy_options")
+		}
+		for _, dir := range option.Agy.AddDirs {
+			if !filepath.IsAbs(dir) {
+				return failure("validation", "agy_add_dirs")
+			}
 		}
 	default:
 		return failure("validation", "backend_kind")
@@ -88,6 +111,9 @@ func backendView(option BackendOptions) Backend {
 		case option.Kind == LegacyHermes:
 			evidence.Enforcement, evidence.Provenance = Soft, "hermes_cli_toolsets"
 			evidence.Reason = "cli_selection_is_not_host_isolation"
+		case option.Kind == AgyCLI:
+			evidence.Enforcement, evidence.Provenance = Soft, "agy_cli_session"
+			evidence.Reason = "cli_agent_tools_are_not_host_isolated"
 		}
 		view.PermissionEvidence = append(view.PermissionEvidence, evidence)
 	}

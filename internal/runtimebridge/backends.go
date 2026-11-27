@@ -24,6 +24,7 @@ type BackendDefinition struct {
 	AlmaURL    string            `json:"almaURL,omitempty"`
 	ProviderID string            `json:"providerID,omitempty"`
 	Hermes     *HermesDefinition `json:"hermes,omitempty"`
+	Agy        *AgyDefinition    `json:"agy,omitempty"`
 }
 
 type HermesDefinition struct {
@@ -32,6 +33,26 @@ type HermesDefinition struct {
 	Profile  string   `json:"profile"`
 	Toolsets []string `json:"toolsets"`
 	MaxTurns int      `json:"maxTurns"`
+}
+
+type AgyDefinition struct {
+	Command              string   `json:"command"`
+	Dir                  string   `json:"dir,omitempty"`
+	Agent                string   `json:"agent,omitempty"`
+	Effort               string   `json:"effort,omitempty"`
+	Sandbox              bool     `json:"sandbox,omitempty"`
+	DisableSlashCommands bool     `json:"disableSlashCommands,omitempty"`
+	SettingsFile         string   `json:"settingsFile,omitempty"`
+	AddDirs              []string `json:"addDirs,omitempty"`
+}
+
+var allowedAgyEfforts = map[string]bool{
+	"":       true,
+	"low":    true,
+	"medium": true,
+	"high":   true,
+	"xhigh":  true,
+	"max":    true,
 }
 
 var modelIDPattern = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9_./:@+-]{0,255}$`)
@@ -74,8 +95,9 @@ func LoadBackendOptions(path string) (execution.Options, error) {
 		}
 		for field := range fields.Backends[index] {
 			field = strings.ToLower(field)
-			if (backend.Kind == execution.LegacyHermes && (field == "almaurl" || field == "providerid")) ||
-				((backend.Kind == execution.AlmaPersonal || backend.Kind == execution.TextOnly) && field == "hermes") {
+			if (backend.Kind == execution.LegacyHermes && (field == "almaurl" || field == "providerid" || field == "agy")) ||
+				(backend.Kind == execution.AgyCLI && (field == "almaurl" || field == "providerid" || field == "hermes")) ||
+				((backend.Kind == execution.AlmaPersonal || backend.Kind == execution.TextOnly) && (field == "hermes" || field == "agy")) {
 				return execution.Options{}, &execution.Error{Code: "validation", Field: "backend_fields"}
 			}
 		}
@@ -111,6 +133,28 @@ func LoadBackendOptions(path string) (execution.Options, error) {
 			}
 			option.Hermes = execution.HermesOptions{Command: hermes.Command, Dir: hermes.Dir, Profile: hermes.Profile,
 				Toolsets: hermes.Toolsets, MaxTurns: hermes.MaxTurns}
+		case execution.AgyCLI:
+			agy := backend.Agy
+			if agy == nil || !filepath.IsAbs(agy.Command) || (agy.Dir != "" && !filepath.IsAbs(agy.Dir)) ||
+				(agy.Agent != "" && !providerIDPattern.MatchString(agy.Agent)) || !allowedAgyEfforts[agy.Effort] ||
+				(agy.SettingsFile != "" && !filepath.IsAbs(agy.SettingsFile)) || len(agy.AddDirs) > 8 {
+				return execution.Options{}, &execution.Error{Code: "validation", Field: "agy_options"}
+			}
+			for _, dir := range agy.AddDirs {
+				if !filepath.IsAbs(dir) {
+					return execution.Options{}, &execution.Error{Code: "validation", Field: "agy_add_dirs"}
+				}
+			}
+			option.Agy = execution.AgyOptions{
+				Command:              agy.Command,
+				Dir:                  agy.Dir,
+				Agent:                agy.Agent,
+				Effort:               agy.Effort,
+				Sandbox:              agy.Sandbox,
+				DisableSlashCommands: agy.DisableSlashCommands,
+				SettingsFile:         agy.SettingsFile,
+				AddDirs:              append([]string{}, agy.AddDirs...),
+			}
 		default:
 			return execution.Options{}, &execution.Error{Code: "unsupported", Field: "backend_kind"}
 		}

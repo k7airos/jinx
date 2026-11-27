@@ -25,10 +25,11 @@ func TestOperatorBackendFileSupportsAllKinds(t *testing.T) {
 	data := `{"schemaVersion":"1","backends":[
 		{"id":"personal","kind":"alma_personal","models":[{"id":"mock-model","label":"Mock model"}],"almaURL":"http://127.0.0.1:1234/"},
 		{"id":"text","kind":"text_only","models":[{"id":"mock-model","label":"Mock model"}],"almaURL":"http://127.0.0.1:1234","providerID":"mock-provider"},
-		{"id":"legacy","kind":"legacy_hermes","models":[{"id":"mock-model","label":"Mock model"}],"hermes":{"command":"/operator/hermes","dir":"/operator/work","profile":"fixed-profile","toolsets":["web","memory","skills"],"maxTurns":3}}
+		{"id":"legacy","kind":"legacy_hermes","models":[{"id":"mock-model","label":"Mock model"}],"hermes":{"command":"/operator/hermes","dir":"/operator/work","profile":"fixed-profile","toolsets":["web","memory","skills"],"maxTurns":3}},
+		{"id":"agy","kind":"agy_cli","models":[{"id":"gemini-4-hydrogen-low","label":"Hydrogen Low"}],"agy":{"command":"/operator/agy","dir":"/operator/agy-work","agent":"helper","effort":"low","sandbox":true,"disableSlashCommands":true,"settingsFile":"/operator/settings.json","addDirs":["/operator/extra"]}}
 	]}`
 	options, err := loadBackendFile(t, data)
-	if err != nil || len(options.Backends) != 3 {
+	if err != nil || len(options.Backends) != 4 {
 		t.Fatal(options, err)
 	}
 	if options.Backends[0].Kind != execution.AlmaPersonal || options.Backends[0].AlmaBaseURL != "http://127.0.0.1:1234" || options.Backends[0].Provider != nil ||
@@ -39,6 +40,14 @@ func TestOperatorBackendFileSupportsAllKinds(t *testing.T) {
 	expected := execution.HermesOptions{Command: "/operator/hermes", Dir: "/operator/work", Profile: "fixed-profile", Toolsets: []string{"web", "memory", "skills"}, MaxTurns: 3}
 	if legacy.Kind != execution.LegacyHermes || legacy.AlmaBaseURL != "" || legacy.Provider != nil || !reflect.DeepEqual(legacy.Hermes, expected) {
 		t.Fatal(legacy)
+	}
+	agy := options.Backends[3]
+	expectedAgy := execution.AgyOptions{
+		Command: "/operator/agy", Dir: "/operator/agy-work", Agent: "helper", Effort: "low",
+		Sandbox: true, DisableSlashCommands: true, SettingsFile: "/operator/settings.json", AddDirs: []string{"/operator/extra"},
+	}
+	if agy.Kind != execution.AgyCLI || agy.AlmaBaseURL != "" || agy.Provider != nil || !reflect.DeepEqual(agy.Agy, expectedAgy) {
+		t.Fatal(agy)
 	}
 	if _, err := execution.Open(filepath.Join(t.TempDir(), "execution.json"), options); err != nil {
 		t.Fatal("loader returned invalid engine options", err)
@@ -86,10 +95,14 @@ func TestOperatorBackendFileAllowlist(t *testing.T) {
 }
 
 func TestOperatorBackendFileRejectsMixedFields(t *testing.T) {
-	for _, kind := range []execution.Kind{execution.AlmaPersonal, execution.TextOnly, execution.LegacyHermes} {
+	for _, kind := range []execution.Kind{execution.AlmaPersonal, execution.TextOnly, execution.LegacyHermes, execution.AgyCLI} {
 		for _, field := range []string{`"hermes":null`, `"hermes":{}`, `"hermes":{"command":"/operator/hermes"}`, `"HERmes":null`,
+			`"agy":null`, `"agy":{}`, `"agy":{"command":"/operator/agy"}`, `"AGY":null`,
 			`"almaURL":"http://127.0.0.1:1234"`, `"almaURL":""`, `"ALMAURL":null`, `"providerID":"mock-provider"`, `"providerID":""`, `"PROVIDERID":null`} {
-			if (kind == execution.LegacyHermes) == strings.Contains(strings.ToLower(field), "hermes") {
+			lowerField := strings.ToLower(field)
+			if ((kind == execution.AlmaPersonal || kind == execution.TextOnly) && (strings.Contains(lowerField, "almaurl") || strings.Contains(lowerField, "providerid"))) ||
+				(kind == execution.LegacyHermes && strings.Contains(lowerField, "hermes")) ||
+				(kind == execution.AgyCLI && strings.Contains(lowerField, "agy")) {
 				continue
 			}
 			t.Run(string(kind)+"/"+field, func(t *testing.T) {
@@ -100,12 +113,42 @@ func TestOperatorBackendFileRejectsMixedFields(t *testing.T) {
 				if kind == execution.LegacyHermes {
 					base = `"hermes":{"command":"/operator/hermes","profile":"fixed-profile","toolsets":[],"maxTurns":3}`
 				}
+				if kind == execution.AgyCLI {
+					base = `"agy":{"command":"/operator/agy"}`
+				}
 				data := `{"schemaVersion":"1","backends":[{"id":"backend","kind":"` + string(kind) + `","models":[{"id":"mock-model","label":"Mock model"}],` + base + `,` + field + `}]}`
 				if _, err := loadBackendFile(t, data); execution.Code(err) != "validation" {
 					t.Fatal("mixed backend fields accepted", err)
 				}
 			})
 		}
+	}
+}
+
+func TestOperatorAgyValidation(t *testing.T) {
+	valid := `{"schemaVersion":"1","backends":[{"id":"agy","kind":"agy_cli","models":[{"id":"gemini-4-hydrogen-low","label":"Hydrogen Low"}],"agy":{"command":"/operator/agy","dir":"/operator/work","agent":"helper","effort":"low","sandbox":true,"settingsFile":"/operator/settings.json","addDirs":["/operator/extra"]}}]}`
+	for _, scenario := range []struct {
+		name string
+		from string
+		to   string
+	}{
+		{"missing_agy", `,"agy":{"command":"/operator/agy","dir":"/operator/work","agent":"helper","effort":"low","sandbox":true,"settingsFile":"/operator/settings.json","addDirs":["/operator/extra"]}`, ""},
+		{"null_agy", `"agy":{"command":"/operator/agy","dir":"/operator/work","agent":"helper","effort":"low","sandbox":true,"settingsFile":"/operator/settings.json","addDirs":["/operator/extra"]}`, `"agy":null`},
+		{"relative_command", `"/operator/agy"`, `"agy"`},
+		{"relative_dir", `"/operator/work"`, `"work"`},
+		{"relative_settings", `"/operator/settings.json"`, `"settings.json"`},
+		{"relative_add_dir", `["/operator/extra"]`, `["extra"]`},
+		{"too_many_add_dirs", `["/operator/extra"]`, `["/1","/2","/3","/4","/5","/6","/7","/8","/9"]`},
+		{"bad_effort", `"low"`, `"ultra"`},
+		{"bad_agent", `"helper"`, `"../bad"`},
+		{"env_rejected", `"sandbox":true`, `"sandbox":true,"env":["SECRET=1"]`},
+		{"skip_perms_rejected", `"sandbox":true`, `"sandbox":true,"dangerouslySkipPermissions":true`},
+	} {
+		t.Run(scenario.name, func(t *testing.T) {
+			if _, err := loadBackendFile(t, strings.Replace(valid, scenario.from, scenario.to, 1)); execution.Code(err) != "validation" {
+				t.Fatalf("expected validation failure for %s", scenario.name)
+			}
+		})
 	}
 }
 

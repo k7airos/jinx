@@ -67,6 +67,8 @@ func ConvertResult(result execution.Result) dispatcher.Result {
 		backend = "Alma"
 	case execution.LegacyHermes:
 		backend = "Hermes"
+	case execution.AgyCLI:
+		backend = "Agy"
 	}
 	sessionID := ""
 	if result.RunID != "" {

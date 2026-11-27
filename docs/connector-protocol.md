@@ -172,6 +172,7 @@ Dispatcher 通过 `action_endpoints.<platform>` 配置连接非微信平台的�
   ```sh
   go run -ldflags=-linkmode=external ./cmd/bilibili-connector -config /absolute/path/to/private-config.json -once
   ```
+- 支持通过 `search_targets` 配置关键词自动发现视频，或使用 `-search "<关键词>"` 检索候选视频、`-skip-relay -show-comments` 进行只读采集诊断；完整「指定视频」与「搜关键词选视频」双场景示例见 [`examples/bilibili-reply/README.md`](../examples/bilibili-reply/README.md)。
 - 若配置了 `action_endpoints.bilibili`，当且仅当同一配置文件中不存在微信群路由（`<digits>@chatroom`）时，Dispatcher 允许省略 `bridge.url`。修改 `action_endpoints` 需重启 Dispatcher 进程生效（热更新接口拒绝变更服务端点）。
 
 ### 4.1 `cmd/v2ex-connector` 论坛主题参考连接器

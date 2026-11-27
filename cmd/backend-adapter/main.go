@@ -42,6 +42,16 @@ type operatorBackend struct {
 		Toolsets []string `json:"toolsets"`
 		MaxTurns int      `json:"maxTurns"`
 	} `json:"hermes"`
+	Agy struct {
+		Command              string   `json:"command"`
+		Dir                  string   `json:"dir"`
+		Agent                string   `json:"agent"`
+		Effort               string   `json:"effort"`
+		Sandbox              bool     `json:"sandbox"`
+		DisableSlashCommands bool     `json:"disableSlashCommands"`
+		SettingsFile         string   `json:"settingsFile"`
+		AddDirs              []string `json:"addDirs"`
+	} `json:"agy"`
 }
 
 func parseArgs(argv []string) (arguments, error) {
@@ -148,7 +158,10 @@ func readOptions(path string) (execution.Options, error) {
 	for _, backend := range config.Backends {
 		option := execution.BackendOptions{ID: backend.ID, Kind: backend.Kind, Models: backend.Models, AlmaBaseURL: backend.BaseURL,
 			Hermes: execution.HermesOptions{Command: backend.Hermes.Command, Dir: backend.Hermes.Dir, Profile: backend.Hermes.Profile,
-				Toolsets: backend.Hermes.Toolsets, MaxTurns: backend.Hermes.MaxTurns}}
+				Toolsets: backend.Hermes.Toolsets, MaxTurns: backend.Hermes.MaxTurns},
+			Agy: execution.AgyOptions{Command: backend.Agy.Command, Dir: backend.Agy.Dir, Agent: backend.Agy.Agent,
+				Effort: backend.Agy.Effort, Sandbox: backend.Agy.Sandbox, DisableSlashCommands: backend.Agy.DisableSlashCommands,
+				SettingsFile: backend.Agy.SettingsFile, AddDirs: backend.Agy.AddDirs}}
 		if backend.Kind == execution.TextOnly && backend.TextAPI != "" {
 			option.Provider, err = execution.NewHTTPTextProvider(execution.HTTPTextOptions{BaseURL: backend.BaseURL, Path: backend.TextAPI})
 			if err != nil {
@@ -228,6 +241,8 @@ func run(ctx context.Context, argv []string, input io.Reader, output io.Writer) 
 		backend, sessionID = "Alma", "alma:"+remoteID
 	} else if result.Kind == execution.LegacyHermes {
 		backend, sessionID = "Hermes", remoteID
+	} else if result.Kind == execution.AgyCLI {
+		backend, sessionID = "Agy", remoteID
 	}
 	if err := json.NewEncoder(output).Encode(resultEvent{Type: "result", Text: result.Text, SessionID: sessionID,
 		Backend: backend, BackendID: result.Backend, RunID: remoteID, Fallback: result.Fallback, FallbackReason: result.FallbackReason, Execution: &result}); err != nil {

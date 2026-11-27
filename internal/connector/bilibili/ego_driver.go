@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net/url"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -127,13 +128,15 @@ func (d *EgoDriver) Health(_ context.Context) (bool, string) {
 }
 
 type egoFetchConfig struct {
-	TaskSpace   string `json:"taskSpace"`
-	TargetURL   string `json:"targetUrl"`
-	OID         string `json:"oid"`
-	BVID        string `json:"bvid"`
-	CommentType int    `json:"commentType"`
-	PollLimit   int    `json:"pollLimit"`
-	KeepPage    bool   `json:"keepPage"`
+	TaskSpace     string `json:"taskSpace"`
+	TargetURL     string `json:"targetUrl"`
+	OID           string `json:"oid"`
+	BVID          string `json:"bvid"`
+	CommentType   int    `json:"commentType"`
+	PollLimit     int    `json:"pollLimit"`
+	SortMode      string `json:"sortMode,omitempty"`
+	SubReplyLimit int    `json:"subReplyLimit,omitempty"`
+	KeepPage      bool   `json:"keepPage"`
 }
 
 type egoFetchComment struct {
@@ -148,23 +151,35 @@ type egoFetchComment struct {
 }
 
 type egoFetchOutput struct {
-	OK        bool              `json:"ok"`
-	OID       string            `json:"oid"`
-	ViewerMID string            `json:"viewer_mid"`
-	Comments  []egoFetchComment `json:"comments"`
-	ErrorCode string            `json:"error_code"`
-	Detail    string            `json:"detail"`
+	OK         bool              `json:"ok"`
+	OID        string            `json:"oid"`
+	VideoTitle string            `json:"video_title"`
+	ViewerMID  string            `json:"viewer_mid"`
+	Comments   []egoFetchComment `json:"comments"`
+	Code       int               `json:"code,omitempty"`
+	ErrorCode  string            `json:"error_code"`
+	Detail     string            `json:"detail"`
+}
+
+func truncateEgoOutput(raw []byte) string {
+	s := strings.Join(strings.Fields(string(raw)), " ")
+	if len(s) > 300 {
+		return s[:300] + "..."
+	}
+	return s
 }
 
 func (d *EgoDriver) FetchComments(ctx context.Context, target TargetConfig) ([]Comment, string, error) {
 	payload := egoFetchConfig{
-		TaskSpace:   d.cfg.TaskSpace,
-		TargetURL:   target.URL,
-		OID:         target.OID,
-		BVID:        target.BVID,
-		CommentType: target.CommentType,
-		PollLimit:   target.PollLimit,
-		KeepPage:    d.cfg.KeepPage,
+		TaskSpace:     d.cfg.TaskSpace,
+		TargetURL:     target.URL,
+		OID:           target.OID,
+		BVID:          target.BVID,
+		CommentType:   target.CommentType,
+		PollLimit:     target.PollLimit,
+		SortMode:      target.SortMode,
+		SubReplyLimit: target.SubReplyLimit,
+		KeepPage:      d.cfg.KeepPage,
 	}
 	script, err := buildEgoFetchScript(payload)
 	if err != nil {
@@ -172,6 +187,9 @@ func (d *EgoDriver) FetchComments(ctx context.Context, target TargetConfig) ([]C
 	}
 	raw, err := d.runScript(ctx, script)
 	if err != nil {
+		if snippet := truncateEgoOutput(raw); snippet != "" {
+			return nil, "", fmt.Errorf("%w (%s)", err, snippet)
+		}
 		return nil, "", err
 	}
 	var out egoFetchOutput
@@ -179,9 +197,14 @@ func (d *EgoDriver) FetchComments(ctx context.Context, target TargetConfig) ([]C
 		return nil, "", err
 	}
 	if !out.OK {
-		return nil, out.ViewerMID, fmt.Errorf("ego fetch failed (%s): %s", out.ErrorCode, out.Detail)
+		errCode := out.ErrorCode
+		if out.Code != 0 {
+			errCode = classifyBilibiliError(out.Code, out.ErrorCode)
+		}
+		return nil, out.ViewerMID, fmt.Errorf("ego fetch failed (%s): %s", errCode, out.Detail)
 	}
 	comments := make([]Comment, 0, len(out.Comments))
+	videoTitle := strings.TrimSpace(out.VideoTitle)
 	for _, item := range out.Comments {
 		rpid := NormalizeReplyID(item.RPID)
 		if rpid == "" || strings.TrimSpace(item.Content) == "" {
@@ -195,6 +218,7 @@ func (d *EgoDriver) FetchComments(ctx context.Context, target TargetConfig) ([]C
 			RPID:        rpid,
 			OID:         oid,
 			BVID:        target.BVID,
+			VideoTitle:  videoTitle,
 			CommentType: target.CommentType,
 			RootID:      NormalizeReplyID(item.Root),
 			ParentID:    NormalizeReplyID(item.Parent),
@@ -208,10 +232,107 @@ func (d *EgoDriver) FetchComments(ctx context.Context, target TargetConfig) ([]C
 	return comments, out.ViewerMID, nil
 }
 
+type egoSearchConfig struct {
+	TaskSpace string `json:"taskSpace"`
+	TargetURL string `json:"targetUrl"`
+	Keyword   string `json:"keyword"`
+	Order     string `json:"order"`
+	Limit     int    `json:"limit"`
+	KeepPage  bool   `json:"keepPage"`
+}
+
+type egoSearchOutput struct {
+	OK        bool             `json:"ok"`
+	Videos    []VideoCandidate `json:"videos"`
+	Code      int              `json:"code,omitempty"`
+	ErrorCode string           `json:"error_code,omitempty"`
+	Detail    string           `json:"detail,omitempty"`
+}
+
+func (d *EgoDriver) SearchVideos(ctx context.Context, query SearchQuery) ([]VideoCandidate, error) {
+	keyword := strings.TrimSpace(query.Keyword)
+	if keyword == "" {
+		return nil, fmt.Errorf("search keyword is required")
+	}
+	order := strings.TrimSpace(query.Order)
+	if order == "" {
+		order = "totalrank"
+	}
+	if !allowedSearchOrders[order] {
+		return nil, fmt.Errorf("invalid search order %q", order)
+	}
+	limit := query.Limit
+	if limit <= 0 {
+		limit = 5
+	}
+	if limit > 20 {
+		limit = 20
+	}
+	payload := egoSearchConfig{
+		TaskSpace: d.cfg.TaskSpace,
+		TargetURL: "https://search.bilibili.com/video?keyword=" + url.QueryEscape(keyword),
+		Keyword:   keyword,
+		Order:     order,
+		Limit:     limit,
+		KeepPage:  d.cfg.KeepPage,
+	}
+	script, err := buildEgoSearchScript(payload)
+	if err != nil {
+		return nil, err
+	}
+	raw, err := d.runScript(ctx, script)
+	if err != nil {
+		if snippet := truncateEgoOutput(raw); snippet != "" {
+			return nil, fmt.Errorf("%w (%s)", err, snippet)
+		}
+		return nil, err
+	}
+	var out egoSearchOutput
+	if err := parseEgoMarker(raw, &out); err != nil {
+		return nil, err
+	}
+	if !out.OK {
+		errCode := out.ErrorCode
+		if out.Code != 0 {
+			errCode = classifyBilibiliError(out.Code, out.ErrorCode)
+		}
+		return nil, fmt.Errorf("ego search failed (%s): %s", errCode, out.Detail)
+	}
+	seen := make(map[string]bool, len(out.Videos))
+	videos := make([]VideoCandidate, 0, len(out.Videos))
+	for _, item := range out.Videos {
+		bvid := strings.TrimSpace(item.BVID)
+		if !bvidPattern.MatchString(bvid) || seen[bvid] {
+			continue
+		}
+		seen[bvid] = true
+		oid := strings.TrimSpace(item.OID)
+		if oid != "" && !oidPattern.MatchString(oid) {
+			oid = ""
+		}
+		videos = append(videos, VideoCandidate{
+			BVID:         bvid,
+			OID:          oid,
+			Title:        strings.TrimSpace(item.Title),
+			Author:       strings.TrimSpace(item.Author),
+			AuthorMID:    strings.TrimSpace(item.AuthorMID),
+			URL:          "https://www.bilibili.com/video/" + bvid,
+			CommentCount: item.CommentCount,
+			PlayCount:    item.PlayCount,
+			PubDate:      item.PubDate,
+		})
+		if len(videos) >= limit {
+			break
+		}
+	}
+	return videos, nil
+}
+
 type egoReplyConfig struct {
 	TaskSpace   string `json:"taskSpace"`
 	TargetURL   string `json:"targetUrl"`
 	OID         string `json:"oid"`
+	BVID        string `json:"bvid,omitempty"`
 	CommentType int    `json:"commentType"`
 	RootID      string `json:"rootId"`
 	ParentID    string `json:"parentId"`
@@ -233,6 +354,7 @@ func (d *EgoDriver) PostReply(ctx context.Context, req ReplyRequest) (ReplyResul
 		TaskSpace:   d.cfg.TaskSpace,
 		TargetURL:   req.Target.URL,
 		OID:         req.OID,
+		BVID:        req.Target.BVID,
 		CommentType: req.CommentType,
 		RootID:      req.RootID,
 		ParentID:    req.ParentID,
@@ -290,7 +412,7 @@ func classifyBilibiliError(code int, fallback string) string {
 		return "captcha_required"
 	case 12022:
 		return "comment_deleted"
-	case 12025, 12035:
+	case 12025, 12035, -352, -412:
 		return "rate_limited"
 	}
 	if fallback != "" && contracts.ValidID(fallback) {
@@ -343,7 +465,7 @@ if (existing && existing.ownership === "agentDelegatedToUser") {
       const tabs = await task.tabs();
       page = tabs[0] ? await task.adopt(tabs[0].page) : await task.newPage();
     }
-    await page.goto(CONFIG.targetUrl);
+    await page.goto(CONFIG.targetUrl, { waitUntil: "domcontentloaded" });
     const res = await page.evaluate(async (c) => {
 %s
     }, CONFIG);
@@ -359,6 +481,27 @@ if (existing && existing.ownership === "agentDelegatedToUser") {
 `, string(rawCfg), egoResultMarker, userControlResult, evaluateBody, errorResult), nil
 }
 
+const jsResolveTargetState = `    let oid = c.oid || "";
+    let videoTitle = "";
+    if (window.__INITIAL_STATE__) {
+      const st = window.__INITIAL_STATE__;
+      const aid = st.aid || (st.videoData && st.videoData.aid);
+      if (!oid && aid) oid = String(aid);
+      if (st.videoData && typeof st.videoData.title === "string") {
+        videoTitle = st.videoData.title.trim();
+      }
+    }
+    if ((!oid || !videoTitle) && c.bvid) {
+      try {
+        const viewResp = await fetch("https://api.bilibili.com/x/web-interface/view?bvid=" + encodeURIComponent(c.bvid), { credentials: "include" });
+        const viewJson = await viewResp.json();
+        if (viewJson && viewJson.code === 0 && viewJson.data) {
+          if (!oid && viewJson.data.aid) oid = String(viewJson.data.aid);
+          if (!videoTitle && typeof viewJson.data.title === "string") videoTitle = viewJson.data.title.trim();
+        }
+      } catch (_) {}
+    }`
+
 func buildEgoFetchScript(cfg egoFetchConfig) (string, error) {
 	const evaluateBody = `    let viewerMid = "";
     try {
@@ -369,36 +512,36 @@ func buildEgoFetchScript(cfg egoFetchConfig) (string, error) {
       }
     } catch (_) {}
 
-    let oid = c.oid || "";
-    if (!oid && window.__INITIAL_STATE__) {
-      const st = window.__INITIAL_STATE__;
-      const aid = st.aid || (st.videoData && st.videoData.aid);
-      if (aid) oid = String(aid);
-    }
+` + jsResolveTargetState + `
     if (!oid) {
       return { ok: false, error_code: "missing_oid", detail: "could not resolve bilibili oid from config or page state" };
     }
 
+    const sortVal = c.sortMode === "hot" ? "2" : "0";
     const api = "https://api.bilibili.com/x/v2/reply?type=" + encodeURIComponent(String(c.commentType || 1)) +
-      "&oid=" + encodeURIComponent(oid) + "&sort=0&ps=" + encodeURIComponent(String(c.pollLimit || 20)) + "&pn=1";
+      "&oid=" + encodeURIComponent(oid) + "&sort=" + sortVal + "&ps=" + encodeURIComponent(String(c.pollLimit || 20)) + "&pn=1";
     const resp = await fetch(api, { credentials: "include" });
     const data = await resp.json();
     if (!data || data.code !== 0) {
       return {
         ok: false,
         oid,
+        video_title: videoTitle,
         viewer_mid: viewerMid,
+        code: Number((data && data.code) || 0),
         error_code: "bilibili_api_error",
         detail: String((data && data.message) || ("code=" + (data && data.code)))
       };
     }
 
     const out = [];
+    const seenRpids = new Set();
     const pushItem = (item) => {
       if (!item) return;
       const rpid = String(item.rpid_str || item.rpid || "");
       const content = item.content && typeof item.content.message === "string" ? item.content.message : "";
-      if (!rpid || !content) return;
+      if (!rpid || !content || seenRpids.has(rpid)) return;
+      seenRpids.add(rpid);
       const mid = item.mid ? String(item.mid) : (item.member && item.member.mid ? String(item.member.mid) : "");
       const uname = item.member && item.member.uname ? String(item.member.uname) : mid;
       const root = item.root_str || (item.root ? String(item.root) : "");
@@ -416,6 +559,21 @@ func buildEgoFetchScript(cfg egoFetchConfig) (string, error) {
       });
     };
 
+    const topSection = data.data && data.data.top;
+    if (topSection && topSection.upper) {
+      pushItem(topSection.upper);
+      if (Array.isArray(topSection.upper.replies)) {
+        for (const sub of topSection.upper.replies) pushItem(sub);
+      }
+    }
+    const topPinned = Array.isArray(data.data && data.data.top_replies) ? data.data.top_replies : [];
+    for (const pinned of topPinned) {
+      pushItem(pinned);
+      if (Array.isArray(pinned && pinned.replies)) {
+        for (const sub of pinned.replies) pushItem(sub);
+      }
+    }
+
     const topReplies = Array.isArray(data.data && data.data.replies) ? data.data.replies : [];
     for (const top of topReplies) {
       pushItem(top);
@@ -425,7 +583,120 @@ func buildEgoFetchScript(cfg egoFetchConfig) (string, error) {
         }
       }
     }
-    return { ok: true, oid, viewer_mid: viewerMid, comments: out };`
+
+    const subLimit = Number(c.subReplyLimit || 0);
+    if (subLimit > 0) {
+      let subFetchedRoots = 0;
+      for (const top of topReplies) {
+        if (subFetchedRoots >= 5) break;
+        const rootRpid = String((top && (top.rpid_str || top.rpid)) || "");
+        const totalSubs = Number((top && top.rcount) || 0);
+        const inlineCount = Array.isArray(top && top.replies) ? top.replies.length : 0;
+        if (!rootRpid || totalSubs <= inlineCount) continue;
+        subFetchedRoots++;
+        try {
+          const subApi = "https://api.bilibili.com/x/v2/reply/reply?type=" + encodeURIComponent(String(c.commentType || 1)) +
+            "&oid=" + encodeURIComponent(oid) + "&root=" + encodeURIComponent(rootRpid) +
+            "&ps=" + encodeURIComponent(String(subLimit)) + "&pn=1";
+          const subResp = await fetch(subApi, { credentials: "include" });
+          const subJson = await subResp.json();
+          if (subJson && subJson.code === 0 && Array.isArray(subJson.data && subJson.data.replies)) {
+            for (const sub of subJson.data.replies) {
+              pushItem(sub);
+            }
+          }
+        } catch (_) {}
+      }
+    }
+    return { ok: true, oid, video_title: videoTitle, viewer_mid: viewerMid, comments: out };`
+	return buildEgoPageScript(
+		cfg,
+		`{ ok: false, error_code: "user_control_active", detail: "task space is currently delegated to user" }`,
+		`{ ok: false, error_code: "ego_exception" }`,
+		evaluateBody,
+	)
+}
+
+func buildEgoSearchScript(cfg egoSearchConfig) (string, error) {
+	const evaluateBody = `    const cleanTitle = (raw) => String(raw || "")
+      .replace(/<[^>]+>/g, "")
+      .replace(/&amp;/g, "&")
+      .replace(/&lt;/g, "<")
+      .replace(/&gt;/g, ">")
+      .replace(/&quot;/g, '"')
+      .replace(/&#39;/g, "'")
+      .trim();
+
+    const videos = [];
+    const seen = new Set();
+    const limit = Number(c.limit || 5);
+    const pushVideo = (v) => {
+      if (!v || !v.bvid || seen.has(v.bvid)) return;
+      seen.add(v.bvid);
+      videos.push(v);
+    };
+
+    try {
+      const api = "https://api.bilibili.com/x/web-interface/search/type?search_type=video&keyword=" +
+        encodeURIComponent(c.keyword) + "&order=" + encodeURIComponent(c.order || "totalrank") +
+        "&page=1&page_size=" + encodeURIComponent(String(Math.max(limit, 10)));
+      const resp = await fetch(api, { credentials: "include" });
+      const data = await resp.json();
+      if (data && data.code !== 0) {
+        if (data.code === -101 || data.code === -111 || data.code === -352 || data.code === -412 || data.code === 12015) {
+          return {
+            ok: false,
+            code: Number(data.code),
+            error_code: "bilibili_api_error",
+            detail: String(data.message || ("code=" + data.code))
+          };
+        }
+      }
+      const list = Array.isArray(data && data.data && data.data.result) ? data.data.result : [];
+      for (const item of list) {
+        if (!item || !item.bvid) continue;
+        pushVideo({
+          bvid: String(item.bvid),
+          oid: item.aid ? String(item.aid) : "",
+          title: cleanTitle(item.title),
+          author: String(item.author || "").trim(),
+          author_mid: item.mid ? String(item.mid) : "",
+          url: "https://www.bilibili.com/video/" + String(item.bvid),
+          comment_count: Number(item.review || 0),
+          play_count: Number(item.play || 0),
+          pub_date: Number(item.pubdate || 0)
+        });
+        if (videos.length >= limit) break;
+      }
+    } catch (_) {}
+
+    if (videos.length === 0) {
+      for (const a of document.querySelectorAll('a[href*="/video/BV"]')) {
+        const href = a.getAttribute("href") || "";
+        const m = href.match(/\/video\/(BV[0-9A-Za-z]+)/);
+        if (!m) continue;
+        const card = a.closest(".bili-video-card, .video-item, li") || a.parentElement;
+        const heading = card ? card.querySelector("h3, .bili-video-card__info--tit") : null;
+        const rawTitle = (heading && (heading.getAttribute("title") || heading.textContent)) || a.getAttribute("title") || a.textContent || "";
+        const title = cleanTitle(rawTitle);
+        if (!title) continue;
+        const authorEl = card ? card.querySelector(".bili-video-card__info--author") : null;
+        pushVideo({
+          bvid: m[1],
+          oid: "",
+          title,
+          author: authorEl ? String(authorEl.textContent || "").trim() : "",
+          author_mid: "",
+          url: "https://www.bilibili.com/video/" + m[1],
+          comment_count: 0,
+          play_count: 0,
+          pub_date: 0
+        });
+        if (videos.length >= limit) break;
+      }
+    }
+
+    return { ok: true, videos };`
 	return buildEgoPageScript(
 		cfg,
 		`{ ok: false, error_code: "user_control_active", detail: "task space is currently delegated to user" }`,
@@ -440,12 +711,7 @@ func buildEgoReplyScript(cfg egoReplyConfig) (string, error) {
     if (!csrf) {
       return { status: "failed", submitted: false, code: -101, reason_code: "not_logged_in", detail: "missing bili_jct CSRF cookie" };
     }
-    let oid = c.oid || "";
-    if (!oid && window.__INITIAL_STATE__) {
-      const st = window.__INITIAL_STATE__;
-      const aid = st.aid || (st.videoData && st.videoData.aid);
-      if (aid) oid = String(aid);
-    }
+` + jsResolveTargetState + `
     if (!oid) {
       return { status: "failed", submitted: false, reason_code: "missing_oid", detail: "could not resolve bilibili oid" };
     }

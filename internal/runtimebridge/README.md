@@ -16,7 +16,7 @@ Dispatcher calls `DeliveryGate(ctx, traceID, sourceGroupID, admit)` under its su
 
 ## Operator backend file
 
-The private file is read only at CLI construction and is not added to Dispatcher config or HTTP responses. Schema version `1` supports all three backend kinds:
+The private file is read only at CLI construction and is not added to Dispatcher config or HTTP responses. Schema version `1` supports all four backend kinds:
 
 ```json
 {
@@ -46,12 +46,25 @@ The private file is read only at CLI construction and is not added to Dispatcher
         "toolsets": ["web", "memory", "skills"],
         "maxTurns": 3
       }
+    },
+    {
+      "id": "agy",
+      "kind": "agy_cli",
+      "models": [{"id": "operator-model-id", "label": "Operator model"}],
+      "agy": {
+        "command": "/absolute/operator/bin/agy",
+        "dir": "/absolute/operator/agy-workspace",
+        "sandbox": true,
+        "disableSlashCommands": false
+      }
     }
   ]
 }
 ```
 
-`PORT` and model/provider IDs must be supplied by the operator. Existing personal/text-only schema version `1` files remain compatible. `alma_personal` and `text_only` reject any `hermes` field, including null; `legacy_hermes` requires `hermes` and rejects `almaURL` or `providerID`, including empty/null fields. Unknown fields, duplicate keys/IDs/models, invalid model IDs and empty labels are rejected during loading. Loading does not contact a backend, probe a model or execute a command; `execution.Open` validates the resulting backend options again.
+`PORT` and model/provider IDs must be supplied by the operator. Existing personal/text-only schema version `1` files remain compatible. `alma_personal` and `text_only` reject any `hermes` or `agy` field, including null; `legacy_hermes` requires `hermes` and rejects `almaURL`, `providerID`, or `agy`; `agy_cli` requires `agy` and rejects `almaURL`, `providerID`, or `hermes`, including empty/null fields. Unknown fields, duplicate keys/IDs/models, invalid model IDs and empty labels are rejected during loading. Loading does not contact a backend, probe a model or execute a command; `execution.Open` validates the resulting backend options again.
+
+`agy_cli` invokes the configured `agy` binary directly via `--input-format stream-json --output-format stream-json --model <model> --print-timeout <timeout>s` (with optional fixed `dir`, `agent`, `effort`, `sandbox`, `disableSlashCommands`, `settingsFile`, and up to 8 absolute `addDirs`, never `--dangerously-skip-permissions` or `env`). Like `legacy_hermes`, `agy_cli` retains **soft** tool-permission evidence (`agy_cli_session`).
 
 Hermes command, optional working directory, profile, toolsets and turn limit are fixed by this operator-owned file. The command must be absolute; a supplied directory must be absolute. The profile is a token of at most 128 characters starting with a letter or digit, with only letters, digits, `_`, `.`, and `-`. `maxTurns` is 1–100; toolsets allow only unique `web`, `memory`, and `skills` entries. There is no `env`, shell argument list, credential, proxy, arbitrary protocol path or HTTP client field. The engine inherits the operator process environment. Chat input goes to stdin; the engine passes the selected catalog model as the single `-m` argument (Hermes' model flag), alongside the fixed CLI settings, with no resume session. HTTP routing selects only existing backend/model IDs. Backend catalogs and other HTTP DTOs contain no Hermes command, directory or profile, and HTTP configuration cannot inject them.
 

@@ -46,7 +46,7 @@ func TestArchitectureSnapshotUsesOnlyHealthTraceAndCatalog(t *testing.T) {
 	}))
 	defer bridge.Close()
 	facade.backend.bases["relay"], facade.backend.bases["bridge"] = server.URL, bridge.URL
-	engine, err := execution.Open(filepath.Join(t.TempDir(), "execution.json"), execution.Options{Backends: []execution.BackendOptions{{ID: "text", Kind: execution.TextOnly, Models: []execution.Model{{ID: "model-1", Label: "/private/SECRET"}}}, {ID: "personal", Kind: execution.AlmaPersonal, AlmaBaseURL: "http://127.0.0.1:1", Models: []execution.Model{{ID: "model-2", Label: "SECRET"}}}}})
+	engine, err := execution.Open(filepath.Join(t.TempDir(), "execution.json"), execution.Options{Backends: []execution.BackendOptions{{ID: "text", Kind: execution.TextOnly, Models: []execution.Model{{ID: "model-1", Label: "/private/SECRET"}}}, {ID: "personal", Kind: execution.AlmaPersonal, AlmaBaseURL: "http://127.0.0.1:1", Models: []execution.Model{{ID: "model-2", Label: "SECRET"}}}, {ID: "agy", Kind: execution.AgyCLI, Agy: execution.AgyOptions{Command: "/operator/agy", Sandbox: true}, Models: []execution.Model{{ID: "model-3", Label: "SECRET"}}}}})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -60,7 +60,7 @@ func TestArchitectureSnapshotUsesOnlyHealthTraceAndCatalog(t *testing.T) {
 		t.Fatalf("bad snapshot: %d %s", response.Code, response.Body.String())
 	}
 	value := result.Value
-	if len(value.Layers) != 3 || len(value.Sources) != 3 || len(value.Actions) != 12 || len(value.Processing.Backends) != 2 || value.Revision == "" || value.ObservedAt.IsZero() || len(value.Processing.Agents) != 0 {
+	if len(value.Layers) != 3 || len(value.Sources) != 3 || len(value.Actions) != 12 || len(value.Processing.Backends) != 3 || value.Revision == "" || value.ObservedAt.IsZero() || len(value.Processing.Agents) != 0 {
 		t.Fatalf("bad snapshot: %+v", value)
 	}
 	if value.Sources[0].State != "ready" || !value.Sources[0].Capabilities[0].Supported || !value.Actions[0].Capabilities[0].Supported {
