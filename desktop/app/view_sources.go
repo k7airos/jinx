@@ -107,7 +107,7 @@ func (s *Store) renderSourcesView(c *ui.Context, p theme.Palette) {
 		// Platform Connectors & Confirmed dry_run Control (Prominent above the fold)
 		components.CardWithHeader(c, p, "平台连接器与确认式演练开关", "切换实时演练模式（dry_run）需先计划预览并二次勾选确认", nil, func() {
 			if len(s.Connectors) == 0 {
-				ui.Text(c, "当前控制面未配置外部连接器（可通过 -bilibili-connector / -web-connector 或 -connector 平台=地址 参数接入）。").FontSize(12).TextColor(p.TextMuted)
+				ui.Text(c, "当前控制面未配置或发现外部连接器（可通过 -connectors-dir、主动注册协议，或 -connector 平台=地址 接入）。").FontSize(12).TextColor(p.TextMuted)
 				return
 			}
 			components.DataList(c, p, func() {
@@ -115,9 +115,24 @@ func (s *Store) renderSourcesView(c *ui.Context, p theme.Palette) {
 					conn := conn
 					ui.Column(c).Key("conn_"+conn.Platform).FillWidth().PaddingY(12).Gap(8).Children(func() {
 						ui.Row(c).FillWidth().Justify(ui.SpaceBetween).AlignItems(ui.Center).Gap(12).Children(func() {
-							ui.Row(c).Gap(8).AlignItems(ui.Center).Children(func() {
+							ui.Row(c).Wrap().Gap(8).AlignItems(ui.Center).Children(func() {
 								ui.Text(c, components.PlatformLabel(conn.Platform)+"连接器").FontSize(13.5).FontWeight(600).TextColor(p.Text)
 								components.HealthPill(c, p, conn.State)
+								if conn.DiscoverySource != nil && *conn.DiscoverySource != "" {
+									components.TagPill(c, p, components.DiscoverySourceLabel(*conn.DiscoverySource), components.ToneNeutral)
+								}
+								if conn.HeartbeatState != nil && *conn.HeartbeatState != "" {
+									hbTone := components.ToneNeutral
+									switch *conn.HeartbeatState {
+									case "alive":
+										hbTone = components.ToneOK
+									case "stale":
+										hbTone = components.ToneWarn
+									case "expired":
+										hbTone = components.ToneDanger
+									}
+									components.StatusPill(c, p, components.HeartbeatStateLabel(*conn.HeartbeatState), hbTone)
+								}
 								if conn.DryRun != nil {
 									tone := components.ToneWarn
 									lbl := "演练模式开启（安全拦截外发）"
@@ -147,6 +162,20 @@ func (s *Store) renderSourcesView(c *ui.Context, p theme.Palette) {
 							ctrls = append(ctrls, components.CapabilityLabel(ct))
 						}
 						components.KVRow(c, p, "动作支持 / 控制项", fmt.Sprintf("支持动作: %s  ·  支持控制: %s", nonEmptyOr(strings.Join(caps, "、"), "无"), nonEmptyOr(strings.Join(ctrls, "、"), "无")))
+						if conn.HeartbeatState != nil || conn.LastHeartbeatAt != nil || conn.RegisteredAt != nil {
+							hbSummary := "仅探活"
+							if conn.HeartbeatState != nil && *conn.HeartbeatState != "" {
+								hbSummary = components.HeartbeatStateLabel(*conn.HeartbeatState)
+							}
+							if conn.HeartbeatTTLSec != nil && *conn.HeartbeatTTLSec > 0 {
+								hbSummary = fmt.Sprintf("%s（TTL %ds）", hbSummary, *conn.HeartbeatTTLSec)
+							}
+							if conn.LastHeartbeatAt != nil {
+								components.KVRow(c, p, "心跳检测", fmt.Sprintf("%s · 最近心跳 %s", hbSummary, components.FormatLocalClock(conn.LastHeartbeatAt)))
+							} else {
+								components.KVRow(c, p, "心跳检测", hbSummary)
+							}
+						}
 						if conn.LastPollAt != nil {
 							pollStatus := "轮询正常"
 							if conn.LastPollErrorCode != nil && *conn.LastPollErrorCode != "" {

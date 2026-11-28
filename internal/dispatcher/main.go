@@ -78,6 +78,7 @@ type Dispatcher struct {
 	controlMu      sync.Mutex
 	submissionMu   sync.Mutex
 	cfg            Config
+	connectors     *connectorRegistry
 	mu             sync.Mutex
 	state          persistentState
 	closed         bool
@@ -125,14 +126,19 @@ func NewDispatcherWithOptions(cfgPath string, options Options) (*Dispatcher, err
 	if err != nil {
 		return nil, err
 	}
-	cfg, err := decodeConfigWithPolicy(data, policy)
+	allowDynamic := strings.TrimSpace(options.ConnectorsDir) != "" || strings.TrimSpace(options.ConnectorTokenFile) != ""
+	cfg, err := decodeConfigWithOptions(data, policy, allowDynamic)
+	if err != nil {
+		return nil, err
+	}
+	reg, err := newConnectorRegistry(options.ConnectorsDir, options.ConnectorTokenFile, cfg.ActionEndpoints, nil)
 	if err != nil {
 		return nil, err
 	}
 	ctx, cancel := context.WithCancel(context.Background())
 	d := &Dispatcher{
 		cfgFile: cfgPath, stateFile: filepath.Join(filepath.Dir(cfgPath), "logs", "state.json"),
-		cfg: cfg, ctx: ctx, cancel: cancel, startedAt: time.Now(),
+		cfg: cfg, connectors: reg, ctx: ctx, cancel: cancel, startedAt: time.Now(),
 		state:       persistentState{Version: 1, Seen: map[string]time.Time{}, Groups: map[string]*GroupState{}},
 		client:      &http.Client{Transport: &http.Transport{ResponseHeaderTimeout: 10 * time.Second}, CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }},
 		hermesSlots: make(chan struct{}, cfg.Hermes.MaxConcurrent), hermesRunner: runHermes, runner: options.Runner,
@@ -223,6 +229,11 @@ func NewDispatcherWithOptions(cfgPath string, options Options) (*Dispatcher, err
 		return nil, err
 	}
 	ready = true
+	if d.connectors != nil {
+		d.connectors.logf = func(format string, args ...any) {
+			d.Log("INFO", format, args...)
+		}
+	}
 	return d, nil
 }
 
@@ -249,6 +260,7 @@ func (d *Dispatcher) Start() {
 	d.wg.Add(1)
 	d.mu.Unlock()
 	go func() { defer d.wg.Done(); d.listenRelay() }()
+	d.startConnectorWatchdog()
 }
 
 func (d *Dispatcher) Close() {
@@ -418,6 +430,10 @@ func (d *Dispatcher) Handler() http.Handler {
 	mux.HandleFunc("/api/control/action", d.handleControlAction)
 	mux.HandleFunc("/api/control/operations/", d.handleControlOperation)
 	mux.HandleFunc("/api/v1/direct-deliver", d.handleDirectDeliver)
+	mux.HandleFunc("/api/v1/connectors", d.handleConnectorsList)
+	mux.HandleFunc("/api/v1/connectors/register", d.handleConnectorRegister)
+	mux.HandleFunc("/api/v1/connectors/heartbeat", d.handleConnectorHeartbeat)
+	mux.HandleFunc("/api/v1/connectors/unregister", d.handleConnectorUnregister)
 	mux.HandleFunc("/api/stats", func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodGet {
 			http.Error(w, "method not allowed", 405)
@@ -499,7 +515,7 @@ func (d *Dispatcher) handleConfig(w http.ResponseWriter, r *http.Request) {
 	}
 	var next Config
 	if r.Method == http.MethodPut {
-		next, err = decodeConfigWithPolicy(data, d.cfg.localPolicy)
+		next, err = decodeConfigWithOptions(data, d.cfg.localPolicy, d.cfg.allowDynamicEndpoints)
 	} else {
 		// The existing console sends a partial flat patch. Missing fields must not reset safety settings.
 		var patch map[string]json.RawMessage
@@ -508,6 +524,7 @@ func (d *Dispatcher) handleConfig(w http.ResponseWriter, r *http.Request) {
 			original, _ := json.Marshal(d.cfg)
 			_ = json.Unmarshal(original, &next)
 			next.localPolicy = d.cfg.localPolicy
+			next.allowDynamicEndpoints = d.cfg.allowDynamicEndpoints
 			ruleData, _ := json.Marshal(next.Rules)
 			var ruleFields map[string]json.RawMessage
 			_ = json.Unmarshal(ruleData, &ruleFields)

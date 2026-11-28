@@ -268,7 +268,7 @@ func TestArchitectureLayerSnapshotUsesEngineWithoutModelProbes(t *testing.T) {
 	if catalog.reads.Load() != 1 || modelRequests.Load() != 0 || posts.Load() != 0 || writes.Load() != 0 {
 		t.Fatalf("read side effects: catalog=%d model=%d bridge=%d config=%d", catalog.reads.Load(), modelRequests.Load(), posts.Load(), writes.Load())
 	}
-	wantDispatcherRequests := map[string]int{"GET /health": 1, "GET /api/trace/snapshot": 1, "GET /api/trace/events": 1}
+	wantDispatcherRequests := map[string]int{"GET /health": 1, "GET /api/trace/snapshot": 1, "GET /api/trace/events": 1, "GET /api/v1/connectors": 1}
 	wantPlatformRequests := map[string]int{"GET /health": 1}
 	if !reflect.DeepEqual(dispatcherRequests.snapshot(), wantDispatcherRequests) || !reflect.DeepEqual(relayRequests.snapshot(), wantPlatformRequests) || !reflect.DeepEqual(bridgeRequests.snapshot(), wantPlatformRequests) {
 		t.Fatalf("architecture performed unaccounted probes: dispatcher=%v relay=%v bridge=%v", dispatcherRequests.snapshot(), relayRequests.snapshot(), bridgeRequests.snapshot())

@@ -975,3 +975,75 @@ func TestConnectorSearchDiscoverySkipRelayAndRelayBlocked(t *testing.T) {
 		t.Fatalf("Execute on discovered video failed: %+v err=%v", execResp, err)
 	}
 }
+
+func TestConnectorIncludeHistoricalBackfillAndMaxForward(t *testing.T) {
+	now := time.Unix(1700002000, 0).UTC()
+	var pushed []connector.InboundPayload
+	var mu sync.Mutex
+	relay := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var payload connector.InboundPayload
+		if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+		mu.Lock()
+		pushed = append(pushed, payload)
+		mu.Unlock()
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(connector.RelayPushResponse{Status: "ok", ID: payload.ID, Allowed: true, Action: "forward"})
+	}))
+	defer relay.Close()
+
+	oldTS := now.Add(-48 * time.Hour).UnixMilli()
+	drv := &fakeDriver{
+		ready:  true,
+		viewer: "5001",
+		comments: []Comment{
+			{RPID: "old-1", OID: "111", BVID: "BV1example0001", SenderID: "1001", Content: "old one", TimestampMS: oldTS},
+			{RPID: "old-2", OID: "111", BVID: "BV1example0001", SenderID: "1002", Content: "old two", TimestampMS: oldTS},
+			{RPID: "old-3", OID: "111", BVID: "BV1example0001", SenderID: "1003", Content: "old three", TimestampMS: oldTS},
+		},
+	}
+
+	// Default PollOnce skips historical comments.
+	connDefault, err := NewConnector(Config{
+		ListenAddr:       "127.0.0.1:0",
+		RelayURL:         relay.URL,
+		StateDir:         t.TempDir(),
+		MaxInitialAgeSec: 300,
+		Targets:          []TargetConfig{{ContainerID: "bilibili:BV1example0001", Enabled: true}},
+	}, drv)
+	if err != nil {
+		t.Fatal(err)
+	}
+	connDefault.now = func() time.Time { return now }
+	repDefault, err := connDefault.PollOnce(context.Background())
+	if err != nil || repDefault.SkippedHistorical != 3 || repDefault.Forwarded != 0 {
+		t.Fatalf("expected default poll to skip 3 historical comments, got %+v err=%v", repDefault, err)
+	}
+
+	// IncludeHistorical + MaxForward forwards up to MaxForward with fresh intake timestamp.
+	connBackfill, err := NewConnector(Config{
+		ListenAddr:       "127.0.0.1:0",
+		RelayURL:         relay.URL,
+		StateDir:         t.TempDir(),
+		MaxInitialAgeSec: 300,
+		Targets:          []TargetConfig{{ContainerID: "bilibili:BV1example0001", Enabled: true}},
+	}, drv)
+	if err != nil {
+		t.Fatal(err)
+	}
+	connBackfill.now = func() time.Time { return now }
+	repBackfill, err := connBackfill.PollOnceWithOptions(context.Background(), PollOptions{
+		IncludeHistorical: true,
+		MaxForward:        2,
+	})
+	if err != nil || repBackfill.Forwarded != 2 || repBackfill.SkippedHistorical != 0 {
+		t.Fatalf("expected 2 forwarded historical comments, got %+v err=%v", repBackfill, err)
+	}
+	mu.Lock()
+	defer mu.Unlock()
+	if len(pushed) != 2 || pushed[0].Timestamp != now.UnixMilli() || pushed[1].ID != "old-2" {
+		t.Fatalf("unexpected backfill payloads: %+v", pushed)
+	}
+}

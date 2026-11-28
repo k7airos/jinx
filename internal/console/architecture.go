@@ -120,15 +120,16 @@ func (facade *Facade) Architecture(ctx context.Context) ArchitectureSnapshot {
 	for _, service := range facade.Services(ctx).Data.([]ServiceView) {
 		health[service.ID] = service
 	}
-	for _, platform := range append([]contracts.Platform{contracts.PlatformWeChat}, facade.listedConnectorPlatforms()...) {
+	resolved := facade.resolveConnectorMap(ctx)
+	for _, platform := range append([]contracts.Platform{contracts.PlatformWeChat}, facade.listedConnectorPlatformsWith(resolved)...) {
 		source := SourceView{Platform: platform, State: "unsupported", Availability: hostAvailability(false, ""), Capabilities: []ArchitectureCapability{missingArchitectureCapability("ingest"), missingArchitectureCapability("adapter_contract")}}
 		var probed *ConnectorView
 		if platform == contracts.PlatformWeChat {
 			source.State = health["relay"].Health
 			source.Availability = hostAvailability(facade.backend.bases["relay"] != "", source.State)
 			source.Capabilities[0] = architectureCapability("ingest", source.Availability.Supported, contracts.EnforcementHost, contracts.CapabilityRelayHealth, contracts.ReasonCode(source.Availability.Reason))
-		} else if facade.backend.bases["connector:"+string(platform)] != "" {
-			conn := facade.probeConnector(ctx, platform)
+		} else if entry, ok := resolved[platform]; ok && entry.origin != "" {
+			conn := facade.probeConnectorResolved(ctx, platform, resolved)
 			probed = &conn
 			source.State = conn.State
 			source.Availability = hostAvailability(true, conn.State)

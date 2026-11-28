@@ -491,3 +491,162 @@ func TestOperatorAddedConnectorPlatform(t *testing.T) {
 		t.Fatalf("dry-run plan rejected a configured operator platform: %s", rec.Body.String())
 	}
 }
+
+func TestControlPlaneAutoDiscoveryFromDispatcherAndDryRunToggle(t *testing.T) {
+	biliStore, err := connector.OpenIdempotencyStore(filepath.Join(t.TempDir(), "idem-bili.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	zhihuStore, err := connector.OpenIdempotencyStore(filepath.Join(t.TempDir(), "idem-zhihu.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	biliHTTP := httptest.NewServer(connector.NewServer(connector.ServerOptions{
+		Executor: &stubConnectorExecutor{
+			platform:  contracts.PlatformBilibili,
+			accountID: "bili-auto",
+			name:      "bili-auto-conn",
+			caps:      []contracts.ActionKind{contracts.ActionReplyText, contracts.ActionThreadReply},
+			ready:     true,
+			targets:   []connector.HealthTarget{{ContainerID: "bilibili:BV1auto000001", Label: "Auto Video", Enabled: true}},
+		},
+		Store:  biliStore,
+		DryRun: true,
+	}).Handler())
+	defer biliHTTP.Close()
+
+	zhihuHTTP := httptest.NewServer(connector.NewServer(connector.ServerOptions{
+		Executor: &stubConnectorExecutor{
+			platform:  "zhihu",
+			accountID: "zhihu-auto",
+			name:      "zhihu-auto-conn",
+			caps:      []contracts.ActionKind{contracts.ActionThreadReply},
+			ready:     true,
+			targets:   []connector.HealthTarget{{ContainerID: "zhihu:q-auto", Label: "Auto Question", Enabled: true}},
+		},
+		Store:  zhihuStore,
+		DryRun: true,
+	}).Handler())
+	defer zhihuHTTP.Close()
+
+	hbAt := time.Date(2026, 11, 27, 14, 5, 0, 0, time.UTC)
+	regAt := time.Date(2026, 11, 27, 14, 0, 0, 0, time.UTC)
+
+	dispatcher := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/api/v1/connectors":
+			_ = json.NewEncoder(w).Encode(map[string]any{
+				"connectors": []connector.RegistryEntry{
+					{
+						Platform:        "bilibili",
+						URL:             biliHTTP.URL,
+						DiscoverySource: connector.DiscoverySourceDynamic,
+						HeartbeatState:  connector.HeartbeatAlive,
+						HeartbeatTTLSec: 35,
+						RegisteredAt:    &regAt,
+						LastHeartbeatAt: &hbAt,
+					},
+					{
+						Platform:        "zhihu",
+						URL:             zhihuHTTP.URL,
+						DiscoverySource: connector.DiscoverySourceDropIn,
+						HeartbeatState:  connector.HeartbeatAlive,
+						HeartbeatTTLSec: 35,
+						RegisteredAt:    &regAt,
+						LastHeartbeatAt: &hbAt,
+					},
+					{
+						// Non-loopback endpoint must be ignored cleanly.
+						Platform:        "evil",
+						URL:             "https://example.com:8443",
+						DiscoverySource: connector.DiscoverySourceDynamic,
+						HeartbeatState:  connector.HeartbeatAlive,
+					},
+				},
+			})
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer dispatcher.Close()
+
+	// No -connector flags / URLs passed to Facade at all!
+	facade, err := New(Options{DispatcherURL: dispatcher.URL, StateDir: t.TempDir(), Timeout: 2 * time.Second})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer facade.Close()
+
+	boot := facade.Bootstrap(context.Background())
+	if !boot.Capabilities["connectors"].Supported || !boot.Capabilities["connectors"].Enabled {
+		t.Fatalf("expected connectors capability enabled via discovery, got %+v", boot.Capabilities["connectors"])
+	}
+
+	connsRec := consoleRequest(facade, "connectors")
+	if connsRec.Code != http.StatusOK {
+		t.Fatalf("GET /connectors status=%d body=%s", connsRec.Code, connsRec.Body.String())
+	}
+	var env struct {
+		Value struct {
+			Data []ConnectorView `json:"data"`
+		} `json:"value"`
+	}
+	if err := json.Unmarshal(connsRec.Body.Bytes(), &env); err != nil {
+		t.Fatal(err)
+	}
+	byPlatform := map[contracts.Platform]ConnectorView{}
+	for _, c := range env.Value.Data {
+		byPlatform[c.Platform] = c
+	}
+	if _, hasEvil := byPlatform["evil"]; hasEvil {
+		t.Fatal("non-loopback discovered connector must be rejected")
+	}
+	bili := byPlatform[contracts.PlatformBilibili]
+	if !bili.Configured || bili.State != "ready" || bili.DiscoverySource == nil || *bili.DiscoverySource != connector.DiscoverySourceDynamic ||
+		bili.HeartbeatState == nil || *bili.HeartbeatState != connector.HeartbeatAlive ||
+		bili.HeartbeatTTLSec == nil || *bili.HeartbeatTTLSec != 35 || bili.LastHeartbeatAt == nil {
+		t.Fatalf("unexpected discovered bilibili connector: %+v", bili)
+	}
+	zhihu := byPlatform["zhihu"]
+	if !zhihu.Configured || zhihu.State != "ready" || zhihu.DiscoverySource == nil || *zhihu.DiscoverySource != connector.DiscoverySourceDropIn {
+		t.Fatalf("unexpected discovered zhihu connector: %+v", zhihu)
+	}
+
+	// Verify Architecture projects both discovered platforms.
+	arch := facade.Architecture(context.Background())
+	foundBili, foundZhihu := false, false
+	for _, src := range arch.Sources {
+		if src.Platform == contracts.PlatformBilibili && src.State == "ready" {
+			foundBili = true
+		}
+		if src.Platform == "zhihu" && src.State == "ready" {
+			foundZhihu = true
+		}
+	}
+	if !foundBili || !foundZhihu {
+		t.Fatalf("architecture missed discovered connectors: %+v", arch.Sources)
+	}
+
+	// Verify two-step dry_run toggle works end-to-end on discovered connector without static flags.
+	planRec := consolePost(facade, "connectors/zhihu/dry-run/plan", ConnectorDryRunPlanInput{
+		RequestID:      "auto-plan-1",
+		ExpectedDryRun: true,
+		TargetDryRun:   false,
+	})
+	if planRec.Code != http.StatusOK {
+		t.Fatalf("plan dry-run on discovered connector failed: %d %s", planRec.Code, planRec.Body.String())
+	}
+	var planOut struct {
+		Value ConnectorDryRunPlan `json:"value"`
+	}
+	_ = json.Unmarshal(planRec.Body.Bytes(), &planOut)
+	applyRec := consolePost(facade, "connectors/zhihu/dry-run/apply", ConnectorDryRunApplyInput{
+		RequestID: "auto-apply-1",
+		PlanID:    planOut.Value.ID,
+		Token:     planOut.Value.Token,
+		Confirm:   true,
+	})
+	if applyRec.Code != http.StatusOK {
+		t.Fatalf("apply dry-run on discovered connector failed: %d %s", applyRec.Code, applyRec.Body.String())
+	}
+}

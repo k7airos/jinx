@@ -646,6 +646,11 @@ type ConnectorView struct {
 	LastPollErrorCode *string               `json:"lastPollErrorCode"`
 	Reason            *string               `json:"reason"`
 	ProtocolVersion   *int                  `json:"protocolVersion"`
+	DiscoverySource   *string               `json:"discoverySource,omitempty"`
+	HeartbeatState    *string               `json:"heartbeatState,omitempty"`
+	LastHeartbeatAt   *time.Time            `json:"lastHeartbeatAt,omitempty"`
+	HeartbeatTTLSec   *int                  `json:"heartbeatTtlSec,omitempty"`
+	RegisteredAt      *time.Time            `json:"registeredAt,omitempty"`
 	ObservedAt        time.Time             `json:"observedAt"`
 }
 

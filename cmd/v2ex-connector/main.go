@@ -10,6 +10,7 @@ import (
 	"flag"
 	"fmt"
 	"log"
+	"net"
 	"net/http"
 	"os"
 	"os/signal"
@@ -17,6 +18,7 @@ import (
 	"syscall"
 	"time"
 
+	"jinx/internal/connector"
 	"jinx/internal/connector/v2ex"
 )
 
@@ -63,14 +65,34 @@ func main() {
 		log.Fatal("another v2ex-connector instance is already running")
 	}
 
+	ln, err := net.Listen("tcp", cfg.ListenAddr)
+	if err != nil {
+		log.Fatalf("listen %s: %v", cfg.ListenAddr, err)
+	}
+	defer ln.Close()
+
 	srv := &http.Server{
-		Addr:              cfg.ListenAddr,
 		Handler:           conn.Handler(),
 		ReadHeaderTimeout: 5 * time.Second,
 		ReadTimeout:       10 * time.Second,
 		WriteTimeout:      time.Duration(cfg.Ego.TimeoutSec+15) * time.Second,
 		IdleTimeout:       60 * time.Second,
 		MaxHeaderBytes:    16 << 10,
+	}
+
+	var regClient *connector.RegistryClient
+	regDone := make(chan struct{})
+	if cfg.Registry.URL != "" {
+		regClient, err = connector.NewRegistryClient(cfg.Registry, ln.Addr().String(), conn, conn.IsDryRun)
+		if err != nil {
+			log.Fatalf("init registry client: %v", err)
+		}
+		go func() {
+			defer close(regDone)
+			regClient.Run(ctx)
+		}()
+	} else {
+		close(regDone)
 	}
 
 	pollDone := make(chan struct{})
@@ -81,17 +103,23 @@ func main() {
 
 	go func() {
 		<-ctx.Done()
+		if regClient != nil {
+			unregCtx, unregCancel := context.WithTimeout(context.Background(), 2*time.Second)
+			_ = regClient.Unregister(unregCtx)
+			unregCancel()
+		}
 		shutCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
 		_ = srv.Shutdown(shutCtx)
 	}()
 
-	log.Printf("v2ex-connector listening on http://%s (dry_run=%t, targets=%d)", cfg.ListenAddr, cfg.IsDryRun(), len(cfg.Targets))
-	if err := srv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+	log.Printf("v2ex-connector listening on http://%s (dry_run=%t, targets=%d)", ln.Addr(), cfg.IsDryRun(), len(cfg.Targets))
+	if err := srv.Serve(ln); err != nil && !errors.Is(err, http.ErrServerClosed) {
 		log.Printf("http server error: %v", err)
 		stop()
 	}
 	<-pollDone
+	<-regDone
 	fmt.Fprintln(os.Stderr, "v2ex-connector stopped")
 }
 

@@ -28,7 +28,7 @@ func (d *Dispatcher) retainConfigSnapshotLocked(b batch, now time.Time) (string,
 	rules := map[string]any{
 		"targetGroupId": b.Rule.TargetGroupID, "enabled": b.Rule.Enabled,
 		"supportMode": b.Rule.SupportMode, "supportSinceMS": b.Rule.SupportSinceMS,
-		"dryRun": b.Config.Bridge.DryRun || b.Rule.DryRun || b.Config.endpointDryRun(b.Rule.TargetGroupID), "mentionOnly": b.Rule.MentionOnly,
+		"dryRun": b.Config.Bridge.DryRun || b.Rule.DryRun || d.endpointDryRun(b.Config, b.Rule.TargetGroupID), "mentionOnly": b.Rule.MentionOnly,
 		"allowedTypes": b.Rule.AllowedTypes, "blockedSenderIds": b.Rule.BlockedSenderIDs,
 		"keywordBlocklist": b.Rule.KeywordBlocklist, "globalKeywordBlocklist": b.Config.Rules.KeywordBlocklist,
 		"regexBlocklist": b.Rule.RegexBlocklist, "ignoreXML": b.Config.Rules.IgnoreXML,

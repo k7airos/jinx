@@ -12,6 +12,7 @@ import (
 	"strings"
 	"time"
 
+	"jinx/internal/connector"
 	"jinx/internal/contracts"
 )
 
@@ -96,15 +97,34 @@ func loopback(host string) bool {
 	return host == "localhost" || net.ParseIP(host).IsLoopback()
 }
 
+func validLoopbackOrigin(raw string) (string, bool) {
+	parsed, err := url.Parse(strings.TrimSpace(raw))
+	if err != nil || parsed.Scheme != "http" || parsed.User != nil || parsed.RawQuery != "" || parsed.Fragment != "" || (parsed.Path != "" && parsed.Path != "/") || parsed.Port() == "" || !loopback(parsed.Hostname()) {
+		return "", false
+	}
+	return strings.TrimRight(parsed.String(), "/"), true
+}
+
 func (backend *upstream) request(ctx context.Context, service, method, path, etag string, body []byte) ([]byte, string, int, error) {
 	return backend.boundedRequest(ctx, backend.client, maxBody, service, method, path, etag, body)
 }
 
+func (backend *upstream) requestOrigin(ctx context.Context, origin, method, path, etag string, body []byte) ([]byte, string, int, error) {
+	return backend.boundedRequestOrigin(ctx, backend.client, maxBody, origin, method, path, etag, body)
+}
+
 func (backend *upstream) boundedRequest(ctx context.Context, client *http.Client, responseLimit int64, service, method, path, etag string, body []byte) ([]byte, string, int, error) {
+	origin := backend.bases[service]
+	if origin == "" {
+		return nil, "", 0, failure("unsupported", "Service probe is not configured")
+	}
+	return backend.boundedRequestOrigin(ctx, client, responseLimit, origin, method, path, etag, body)
+}
+
+func (backend *upstream) boundedRequestOrigin(ctx context.Context, client *http.Client, responseLimit int64, origin, method, path, etag string, body []byte) ([]byte, string, int, error) {
 	if len(body) > maxBody {
 		return nil, "", 0, failure("too_large", "Configuration patch exceeds 256 KiB")
 	}
-	origin := backend.bases[service]
 	if origin == "" {
 		return nil, "", 0, failure("unsupported", "Service probe is not configured")
 	}
@@ -171,4 +191,34 @@ func (backend *upstream) connectorPlatforms() []contracts.Platform {
 	}
 	sort.Slice(platforms, func(i, j int) bool { return platforms[i] < platforms[j] })
 	return platforms
+}
+
+func (backend *upstream) discoveredConnectors(ctx context.Context) []connector.RegistryEntry {
+	data, _, status, err := backend.request(ctx, "dispatcher", http.MethodGet, "/api/v1/connectors", "", nil)
+	if err != nil || status != http.StatusOK {
+		return nil
+	}
+	var payload struct {
+		Connectors []connector.RegistryEntry `json:"connectors"`
+	}
+	if json.Unmarshal(data, &payload) != nil || len(payload.Connectors) == 0 {
+		return nil
+	}
+	seen := make(map[string]bool, len(payload.Connectors))
+	out := make([]connector.RegistryEntry, 0, len(payload.Connectors))
+	for _, entry := range payload.Connectors {
+		platform := contracts.Platform(strings.TrimSpace(entry.Platform))
+		if !contracts.IsNamespacedPlatform(platform) || seen[string(platform)] {
+			continue
+		}
+		origin, ok := validLoopbackOrigin(entry.URL)
+		if !ok {
+			continue
+		}
+		entry.Platform = string(platform)
+		entry.URL = origin
+		seen[entry.Platform] = true
+		out = append(out, entry)
+	}
+	return out
 }

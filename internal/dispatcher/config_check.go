@@ -9,6 +9,11 @@ import (
 )
 
 func ValidateConfigFile(configPath, localPolicyPath string) error {
+	return ValidateConfigFileWithOptions(configPath, Options{LocalPolicyPath: localPolicyPath})
+}
+
+func ValidateConfigFileWithOptions(configPath string, options Options) error {
+	localPolicyPath := options.LocalPolicyPath
 	if localPolicyPath == "" {
 		localPolicyPath = os.Getenv("JINX_LOCAL_POLICY")
 	}
@@ -36,7 +41,8 @@ func ValidateConfigFile(configPath, localPolicyPath string) error {
 	if decoder.Decode(new(json.RawMessage)) != nil || decoder.Decode(new(any)) != io.EOF {
 		return errors.New("invalid dispatcher configuration")
 	}
-	if _, err := decodeConfigWithPolicy(data, policy); err != nil {
+	allowDynamic := options.ConnectorsDir != "" || options.ConnectorTokenFile != ""
+	if _, err := decodeConfigWithOptions(data, policy, allowDynamic); err != nil {
 		return errors.New("invalid dispatcher configuration")
 	}
 	return nil

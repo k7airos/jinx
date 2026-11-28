@@ -23,8 +23,9 @@ type ActionEndpointConfig struct {
 }
 
 type Config struct {
-	localPolicy *localPolicy
-	Server      struct {
+	localPolicy           *localPolicy
+	allowDynamicEndpoints bool
+	Server                struct {
 		ListenAddr string `json:"listen_addr"`
 	} `json:"server"`
 	Relay struct {
@@ -121,7 +122,11 @@ func decodeConfig(data []byte) (Config, error) {
 }
 
 func decodeConfigWithPolicy(data []byte, policy *localPolicy) (Config, error) {
-	cfg := Config{localPolicy: policy}
+	return decodeConfigWithOptions(data, policy, false)
+}
+
+func decodeConfigWithOptions(data []byte, policy *localPolicy, allowDynamicEndpoints bool) (Config, error) {
+	cfg := Config{localPolicy: policy, allowDynamicEndpoints: allowDynamicEndpoints}
 	dec := json.NewDecoder(bytes.NewReader(data))
 	dec.DisallowUnknownFields()
 	if err := dec.Decode(&cfg); err != nil {
@@ -210,7 +215,7 @@ func (c *Config) normalizeAndValidate() error {
 	if err := validateLoopbackHTTPURL(c.Relay.StreamURL); err != nil {
 		return err
 	}
-	if c.Bridge.URL != "" || len(c.ActionEndpoints) == 0 || c.hasWeChatRoutes() {
+	if c.Bridge.URL != "" || (!c.allowDynamicEndpoints && len(c.ActionEndpoints) == 0) || c.hasWeChatRoutes() {
 		if err := validateLoopbackHTTPURL(c.Bridge.URL); err != nil {
 			return err
 		}

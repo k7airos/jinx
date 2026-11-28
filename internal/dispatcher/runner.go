@@ -57,8 +57,10 @@ func (run RunFunc) Run(ctx context.Context, request BackendRequest) (Result, err
 }
 
 type Options struct {
-	Runner          Runner
-	LocalPolicyPath string
+	Runner             Runner
+	LocalPolicyPath    string
+	ConnectorsDir      string
+	ConnectorTokenFile string
 }
 
 func (d *Dispatcher) backendRequest(b batch) BackendRequest {

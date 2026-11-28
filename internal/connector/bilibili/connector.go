@@ -16,7 +16,9 @@ import (
 )
 
 type PollOptions struct {
-	SkipRelay bool
+	SkipRelay         bool
+	IncludeHistorical bool
+	MaxForward        int
 }
 
 type PollReport struct {
@@ -115,6 +117,7 @@ func NewConnector(cfg Config, driver Driver) (*Connector, error) {
 }
 
 func (c *Connector) Handler() http.Handler              { return c.server.Handler() }
+func (c *Connector) IsDryRun() bool                     { return c.server.IsDryRun() }
 func (c *Connector) Platform() contracts.Platform       { return contracts.PlatformBilibili }
 func (c *Connector) AccountID() string                  { return c.cfg.AccountID }
 func (c *Connector) ConnectorName() string              { return "bilibili-ego-connector" }
@@ -358,11 +361,14 @@ func (c *Connector) PollOnceWithOptions(ctx context.Context, opts PollOptions) (
 				continue
 			}
 
+			if opts.MaxForward > 0 && report.Forwarded >= opts.MaxForward {
+				break
+			}
 			if c.cursors.HasSeen(target.ContainerID, comment.RPID) {
 				report.SkippedSeen++
 				continue
 			}
-			if !seeded && comment.TimestampMS > 0 && comment.TimestampMS < cutoffMS {
+			if !opts.IncludeHistorical && !seeded && comment.TimestampMS > 0 && comment.TimestampMS < cutoffMS {
 				if err := c.cursors.MarkSeen(target.ContainerID, comment.RPID, comment.TimestampMS); err != nil && firstErr == nil {
 					firstErr = err
 					errCode = "cursor_error"
@@ -414,7 +420,7 @@ func (c *Connector) PollOnceWithOptions(ctx context.Context, opts PollOptions) (
 				Timestamp:    comment.TimestampMS,
 				IsEcho:       isEcho,
 			}
-			if payload.Timestamp <= 0 {
+			if opts.IncludeHistorical || payload.Timestamp <= 0 {
 				payload.Timestamp = c.now().UnixMilli()
 			}
 			pushResp, err := c.relay.Push(ctx, payload)

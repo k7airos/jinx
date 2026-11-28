@@ -46,8 +46,9 @@ type Config struct {
 	AutoMention      *bool          `json:"auto_mention,omitempty"`
 	PollIntervalSec  int            `json:"poll_interval_sec,omitempty"`
 	MaxInitialAgeSec int            `json:"max_initial_age_sec,omitempty"`
-	Ego              EgoConfig      `json:"ego"`
-	Targets          []TargetConfig `json:"targets"`
+	Ego              EgoConfig                      `json:"ego"`
+	Targets          []TargetConfig                 `json:"targets"`
+	Registry         connector.RegistryClientConfig `json:"registry,omitempty"`
 }
 
 func (c Config) IsDryRun() bool {
@@ -177,6 +178,9 @@ func (c *Config) NormalizeAndValidate() error {
 		}
 		target.URL = "https://" + u.Hostname() + "/t/" + target.TopicID
 		c.Targets[i] = target
+	}
+	if err := connector.NormalizeRegistryClientConfig(&c.Registry); err != nil {
+		return err
 	}
 	return nil
 }

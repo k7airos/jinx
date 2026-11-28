@@ -12,6 +12,7 @@ import (
 	"strings"
 	"sync"
 	"sync/atomic"
+	"time"
 
 	"jinx-desktop/assets"
 	"jinx-desktop/client"
@@ -204,8 +205,9 @@ type Store struct {
 	ChangeDrawerOpen   bool
 	ChangeStatusFilter string
 
-	stopRunSSE  func()
-	stopArchSSE func()
+	stopRunSSE   func()
+	stopArchSSE  func()
+	stopConnPoll func()
 }
 
 var (
@@ -358,6 +360,10 @@ func (s *Store) stopStreamHandles() {
 		s.stopArchSSE()
 		s.stopArchSSE = nil
 	}
+	if s.stopConnPoll != nil {
+		s.stopConnPoll()
+		s.stopConnPoll = nil
+	}
 }
 
 // StartStreams subscribes to /console/v1/events and /console/v1/architecture/events.
@@ -423,6 +429,55 @@ func (s *Store) StartStreams(ctx context.Context) {
 				})
 			},
 		})
+	}
+	if !s.syncOps && cli != nil && !cli.IsMock() {
+		pollCtx, pollCancel := context.WithCancel(connCtx)
+		s.stopConnPoll = pollCancel
+		go func() {
+			ticker := time.NewTicker(10 * time.Second)
+			defer ticker.Stop()
+			for {
+				select {
+				case <-pollCtx.Done():
+					return
+				case <-ticker.C:
+					viewCh := make(chan string, 1)
+					s.dispatchEpoch(epoch, func() {
+						select {
+						case viewCh <- s.ActiveView:
+						default:
+						}
+					})
+					var activeView string
+					dispatchTimeout := time.NewTimer(2 * time.Second)
+					select {
+					case activeView = <-viewCh:
+						dispatchTimeout.Stop()
+					case <-dispatchTimeout.C:
+						continue
+					case <-pollCtx.Done():
+						dispatchTimeout.Stop()
+						return
+					}
+					if activeView != ViewSources && activeView != ViewOverview {
+						continue
+					}
+					conns, errConns := cli.ListConnectors(pollCtx)
+					arch, errArch := cli.GetArchitecture(pollCtx)
+					if errConns != nil && errArch != nil {
+						continue
+					}
+					s.dispatchEpoch(epoch, func() {
+						if errConns == nil {
+							s.Connectors = conns.Data
+						}
+						if errArch == nil {
+							s.Arch = &arch
+						}
+					})
+				}
+			}
+		}()
 	}
 }
 

@@ -229,7 +229,7 @@ func (d *Dispatcher) DirectDeliver(ctx context.Context, req DirectDeliverRequest
 		targetName = targetID
 	}
 
-	isDryRun := req.DryRun || cfg.Bridge.DryRun || rule.DryRun || cfg.endpointDryRun(rule.TargetGroupID)
+	isDryRun := req.DryRun || cfg.Bridge.DryRun || rule.DryRun || d.endpointDryRun(cfg, rule.TargetGroupID)
 	if isDryRun {
 		if err := d.tracePhase(b, contracts.PhaseChecking, "direct_delivery"); err != nil {
 			return DirectDeliverResponse{}, directError(http.StatusServiceUnavailable, "trace_unavailable", err.Error())

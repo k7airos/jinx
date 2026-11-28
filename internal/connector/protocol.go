@@ -21,7 +21,164 @@ const (
 	ProtocolVersion      = 1
 	maxTextRunes         = 16384
 	maxReplyContextBytes = 8 << 10
+
+	DiscoverySourceStatic  = "static"
+	DiscoverySourceDropIn  = "dropin"
+	DiscoverySourceDynamic = "dynamic"
+
+	HeartbeatAlive     = "alive"
+	HeartbeatStale     = "stale"
+	HeartbeatExpired   = "expired"
+	HeartbeatUntracked = "untracked"
+
+	DefaultHeartbeatIntervalSec = 10
+	DefaultHeartbeatTTLSec      = 35
+	MinHeartbeatTTLSec          = 5
+	MaxHeartbeatTTLSec          = 300
+
+	ConnectorTokenHeader = "X-JINX-Connector-Token"
 )
+
+type RegisterRequest struct {
+	ProtocolVersion int            `json:"protocol_version"`
+	Platform        string         `json:"platform"`
+	URL             string         `json:"url"`
+	InstanceID      string         `json:"instance_id,omitempty"`
+	AccountID       string         `json:"account_id,omitempty"`
+	ConnectorName   string         `json:"connector_name,omitempty"`
+	Capabilities    []string       `json:"capabilities,omitempty"`
+	Controls        []string       `json:"controls,omitempty"`
+	Targets         []HealthTarget `json:"targets,omitempty"`
+	HeartbeatTTLSec int            `json:"heartbeat_ttl_sec,omitempty"`
+	DryRun          bool           `json:"dry_run"`
+}
+
+type RegisterResponse struct {
+	OK              bool      `json:"ok"`
+	Platform        string    `json:"platform,omitempty"`
+	DiscoverySource string    `json:"discovery_source,omitempty"`
+	HeartbeatTTLSec int       `json:"heartbeat_ttl_sec,omitempty"`
+	RegisteredAt    time.Time `json:"registered_at,omitempty"`
+	ExpiresAt       time.Time `json:"expires_at,omitempty"`
+	Code            string    `json:"code,omitempty"`
+	Error           string    `json:"error,omitempty"`
+}
+
+type HeartbeatRequest struct {
+	Platform          string         `json:"platform"`
+	URL               string         `json:"url"`
+	InstanceID        string         `json:"instance_id,omitempty"`
+	DryRun            bool           `json:"dry_run"`
+	Ready             bool           `json:"ready"`
+	Targets           []HealthTarget `json:"targets,omitempty"`
+	LastPollAt        *time.Time     `json:"last_poll_at,omitempty"`
+	LastPollErrorCode string         `json:"last_poll_error_code,omitempty"`
+	HeartbeatTTLSec   int            `json:"heartbeat_ttl_sec,omitempty"`
+}
+
+type HeartbeatResponse struct {
+	OK             bool      `json:"ok"`
+	Platform       string    `json:"platform,omitempty"`
+	HeartbeatState string    `json:"heartbeat_state,omitempty"`
+	ExpiresAt      time.Time `json:"expires_at,omitempty"`
+	Code           string    `json:"code,omitempty"`
+	Error          string    `json:"error,omitempty"`
+}
+
+type UnregisterRequest struct {
+	Platform   string `json:"platform"`
+	URL        string `json:"url"`
+	InstanceID string `json:"instance_id,omitempty"`
+}
+
+type RegistryEntry struct {
+	Platform          string         `json:"platform"`
+	URL               string         `json:"url"`
+	DiscoverySource   string         `json:"discovery_source"`
+	InstanceID        string         `json:"instance_id,omitempty"`
+	DryRun            *bool          `json:"dry_run,omitempty"`
+	Ready             *bool          `json:"ready,omitempty"`
+	Capabilities      []string       `json:"capabilities,omitempty"`
+	Controls          []string       `json:"controls,omitempty"`
+	AccountID         string         `json:"account_id,omitempty"`
+	ConnectorName     string         `json:"connector_name,omitempty"`
+	Targets           []HealthTarget `json:"targets,omitempty"`
+	LastPollAt        *time.Time     `json:"last_poll_at,omitempty"`
+	LastPollErrorCode string         `json:"last_poll_error_code,omitempty"`
+	HeartbeatState    string         `json:"heartbeat_state"`
+	HeartbeatTTLSec   int            `json:"heartbeat_ttl_sec,omitempty"`
+	RegisteredAt      *time.Time     `json:"registered_at,omitempty"`
+	LastHeartbeatAt   *time.Time     `json:"last_heartbeat_at,omitempty"`
+	ExpiresAt         *time.Time     `json:"expires_at,omitempty"`
+	LastProbeAt       *time.Time     `json:"last_probe_at,omitempty"`
+	LastProbeOK       *bool          `json:"last_probe_ok,omitempty"`
+	LastProbeError    string         `json:"last_probe_error,omitempty"`
+}
+
+type DropInManifest struct {
+	SchemaVersion int    `json:"schema_version,omitempty"`
+	Platform      string `json:"platform"`
+	URL           string `json:"url"`
+	Enabled       *bool  `json:"enabled,omitempty"`
+	DryRun        bool   `json:"dry_run,omitempty"`
+	TimeoutSec    int    `json:"timeout_sec,omitempty"`
+	ConnectorName string `json:"connector_name,omitempty"`
+	AccountID     string `json:"account_id,omitempty"`
+}
+
+type RegistryClientConfig struct {
+	URL                  string `json:"url"`
+	TokenFile            string `json:"token_file,omitempty"`
+	AdvertiseURL         string `json:"advertise_url,omitempty"`
+	HeartbeatIntervalSec int    `json:"heartbeat_interval_sec,omitempty"`
+	HeartbeatTTLSec      int    `json:"heartbeat_ttl_sec,omitempty"`
+	TimeoutSec           int    `json:"timeout_sec,omitempty"`
+}
+
+func NormalizeRegistryClientConfig(cfg *RegistryClientConfig) error {
+	if cfg == nil {
+		return nil
+	}
+	cfg.URL = strings.TrimRight(strings.TrimSpace(cfg.URL), "/")
+	cfg.TokenFile = strings.TrimSpace(cfg.TokenFile)
+	cfg.AdvertiseURL = strings.TrimRight(strings.TrimSpace(cfg.AdvertiseURL), "/")
+	if cfg.URL == "" {
+		if cfg.TokenFile != "" || cfg.AdvertiseURL != "" || cfg.HeartbeatIntervalSec != 0 || cfg.HeartbeatTTLSec != 0 || cfg.TimeoutSec != 0 {
+			return fmt.Errorf("registry.url is required when registry is configured")
+		}
+		return nil
+	}
+	if err := ValidateLoopbackURL(cfg.URL); err != nil {
+		return fmt.Errorf("registry.url: %w", err)
+	}
+	if cfg.AdvertiseURL != "" {
+		if err := ValidateLoopbackURL(cfg.AdvertiseURL); err != nil {
+			return fmt.Errorf("registry.advertise_url: %w", err)
+		}
+	}
+	if cfg.HeartbeatIntervalSec == 0 {
+		cfg.HeartbeatIntervalSec = DefaultHeartbeatIntervalSec
+	}
+	if cfg.HeartbeatIntervalSec < 2 || cfg.HeartbeatIntervalSec > 120 {
+		return fmt.Errorf("registry.heartbeat_interval_sec must be 2..120")
+	}
+	if cfg.HeartbeatTTLSec == 0 {
+		cfg.HeartbeatTTLSec = DefaultHeartbeatTTLSec
+	}
+	if cfg.HeartbeatTTLSec < MinHeartbeatTTLSec || cfg.HeartbeatTTLSec > MaxHeartbeatTTLSec {
+		return fmt.Errorf("registry.heartbeat_ttl_sec must be %d..%d", MinHeartbeatTTLSec, MaxHeartbeatTTLSec)
+	}
+	if cfg.HeartbeatTTLSec <= cfg.HeartbeatIntervalSec {
+		return fmt.Errorf("registry.heartbeat_ttl_sec must exceed heartbeat_interval_sec")
+	}
+	if cfg.TimeoutSec == 0 {
+		cfg.TimeoutSec = 5
+	}
+	if cfg.TimeoutSec < 1 || cfg.TimeoutSec > 30 {
+		return fmt.Errorf("registry.timeout_sec must be 1..30")
+	}
+	return nil
+}
 
 type HealthTarget struct {
 	ContainerID string `json:"container_id"`

@@ -36,7 +36,17 @@ type ConnectorView struct {
 	LastPollErrorCode *string                `json:"lastPollErrorCode"`
 	Reason            *string                `json:"reason"`
 	ProtocolVersion   *int                   `json:"protocolVersion"`
+	DiscoverySource   *string                `json:"discoverySource,omitempty"`
+	HeartbeatState    *string                `json:"heartbeatState,omitempty"`
+	LastHeartbeatAt   *time.Time             `json:"lastHeartbeatAt,omitempty"`
+	HeartbeatTTLSec   *int                   `json:"heartbeatTtlSec,omitempty"`
+	RegisteredAt      *time.Time             `json:"registeredAt,omitempty"`
 	ObservedAt        time.Time              `json:"observedAt"`
+}
+
+type resolvedConnector struct {
+	origin   string
+	registry *connector.RegistryEntry
 }
 
 type ConnectorDryRunPlanInput struct {
@@ -138,7 +148,34 @@ func validActionKind(raw string) (contracts.ActionKind, bool) {
 	}
 }
 
+func (facade *Facade) resolveConnectorMap(ctx context.Context) map[contracts.Platform]resolvedConnector {
+	resolved := make(map[contracts.Platform]resolvedConnector)
+	for _, entry := range facade.backend.discoveredConnectors(ctx) {
+		ep := entry
+		resolved[contracts.Platform(entry.Platform)] = resolvedConnector{
+			origin:   entry.URL,
+			registry: &ep,
+		}
+	}
+	for _, platform := range facade.backend.connectorPlatforms() {
+		origin := facade.backend.bases["connector:"+string(platform)]
+		if origin == "" {
+			continue
+		}
+		item := resolvedConnector{origin: origin}
+		if existing, ok := resolved[platform]; ok && existing.origin == origin && existing.registry != nil {
+			item.registry = existing.registry
+		}
+		resolved[platform] = item
+	}
+	return resolved
+}
+
 func (facade *Facade) probeConnector(ctx context.Context, platform contracts.Platform) ConnectorView {
+	return facade.probeConnectorResolved(ctx, platform, facade.resolveConnectorMap(ctx))
+}
+
+func (facade *Facade) probeConnectorResolved(ctx context.Context, platform contracts.Platform, resolved map[contracts.Platform]resolvedConnector) ConnectorView {
 	observed := time.Now().UTC()
 	view := ConnectorView{
 		Platform:     platform,
@@ -150,17 +187,47 @@ func (facade *Facade) probeConnector(ctx context.Context, platform contracts.Pla
 		Targets:      []ConnectorTargetView{},
 		ObservedAt:   observed,
 	}
-	serviceID, err := connectorServiceID(platform)
-	if err != nil || facade.backend.bases[serviceID] == "" {
+	if _, err := connectorServiceID(platform); err != nil {
+		return view
+	}
+	entry, ok := resolved[platform]
+	if !ok || entry.origin == "" {
 		return view
 	}
 	view.Configured = true
 	view.State = "unreachable"
 	view.Availability = hostAvailability(true, "unreachable")
+	if entry.registry != nil {
+		if tok := safeToken(entry.registry.DiscoverySource); tok != "" {
+			view.DiscoverySource = &tok
+		}
+		if tok := safeToken(entry.registry.HeartbeatState); tok != "" {
+			view.HeartbeatState = &tok
+		}
+		if entry.registry.LastHeartbeatAt != nil && !entry.registry.LastHeartbeatAt.IsZero() {
+			ts := entry.registry.LastHeartbeatAt.UTC()
+			view.LastHeartbeatAt = &ts
+		}
+		if entry.registry.HeartbeatTTLSec > 0 {
+			ttl := entry.registry.HeartbeatTTLSec
+			view.HeartbeatTTLSec = &ttl
+		}
+		if entry.registry.RegisteredAt != nil && !entry.registry.RegisteredAt.IsZero() {
+			ts := entry.registry.RegisteredAt.UTC()
+			view.RegisteredAt = &ts
+		}
+	} else {
+		src := connector.DiscoverySourceStatic
+		view.DiscoverySource = &src
+	}
 
-	data, _, status, err := facade.backend.request(ctx, serviceID, http.MethodGet, "/health", "", nil)
+	data, _, status, err := facade.backend.requestOrigin(ctx, entry.origin, http.MethodGet, "/health", "", nil)
 	view.ObservedAt = time.Now().UTC()
 	if err != nil || (status != http.StatusOK && status != http.StatusServiceUnavailable) {
+		if view.HeartbeatState != nil && *view.HeartbeatState == connector.HeartbeatExpired {
+			expiredReason := "heartbeat_expired"
+			view.Reason = &expiredReason
+		}
 		return view
 	}
 	var raw connector.HealthResponse
@@ -230,11 +297,12 @@ func (facade *Facade) probeConnector(ctx context.Context, platform contracts.Pla
 }
 
 func (facade *Facade) ListConnectors(ctx context.Context) Envelope {
-	platforms := facade.listedConnectorPlatforms()
+	resolved := facade.resolveConnectorMap(ctx)
+	platforms := facade.listedConnectorPlatformsWith(resolved)
 	items := make([]ConnectorView, 0, len(platforms))
 	freshness := "fresh"
 	for _, platform := range platforms {
-		view := facade.probeConnector(ctx, platform)
+		view := facade.probeConnectorResolved(ctx, platform, resolved)
 		if view.Configured && view.State == "unreachable" {
 			freshness = "unknown"
 		}
@@ -280,14 +348,14 @@ func pruneConnectorPlansLocked(plans map[string]*savedConnectorPlan, now time.Ti
 }
 
 func (facade *Facade) PlanConnectorDryRun(ctx context.Context, platform contracts.Platform, input ConnectorDryRunPlanInput) (ConnectorDryRunPlan, error) {
-	serviceID, err := connectorServiceID(platform)
-	if err != nil {
+	if _, err := connectorServiceID(platform); err != nil {
 		return ConnectorDryRunPlan{}, err
 	}
 	if !validRequestID(input.RequestID) {
 		return ConnectorDryRunPlan{}, failure("validation", "Request ID is required")
 	}
-	if facade.backend.bases[serviceID] == "" {
+	resolved := facade.resolveConnectorMap(ctx)
+	if entry, ok := resolved[platform]; !ok || entry.origin == "" {
 		return ConnectorDryRunPlan{}, failure("unsupported", "Connector is not configured on control-plane")
 	}
 
@@ -308,7 +376,7 @@ func (facade *Facade) PlanConnectorDryRun(ctx context.Context, platform contract
 		}
 	}
 
-	current := facade.probeConnector(ctx, platform)
+	current := facade.probeConnectorResolved(ctx, platform, resolved)
 	if current.State == "unreachable" || current.DryRun == nil {
 		return ConnectorDryRunPlan{}, failure("unavailable", "Connector health is unreachable")
 	}
@@ -361,8 +429,7 @@ func (facade *Facade) PlanConnectorDryRun(ctx context.Context, platform contract
 }
 
 func (facade *Facade) ApplyConnectorDryRun(ctx context.Context, platform contracts.Platform, input ConnectorDryRunApplyInput) (ConnectorDryRunApplyResult, error) {
-	serviceID, err := connectorServiceID(platform)
-	if err != nil {
+	if _, err := connectorServiceID(platform); err != nil {
 		return ConnectorDryRunApplyResult{}, err
 	}
 	if !validRequestID(input.RequestID) {
@@ -371,7 +438,9 @@ func (facade *Facade) ApplyConnectorDryRun(ctx context.Context, platform contrac
 	if !input.Confirm {
 		return ConnectorDryRunApplyResult{}, failure("validation", "Explicit confirmation is required before changing connector dry_run")
 	}
-	if facade.backend.bases[serviceID] == "" {
+	resolved := facade.resolveConnectorMap(ctx)
+	targetEntry, ok := resolved[platform]
+	if !ok || targetEntry.origin == "" {
 		return ConnectorDryRunApplyResult{}, failure("unsupported", "Connector is not configured on control-plane")
 	}
 
@@ -400,7 +469,7 @@ func (facade *Facade) ApplyConnectorDryRun(ctx context.Context, platform contrac
 		return ConnectorDryRunApplyResult{}, failure("stale", "Connector dry-run plan expired; refresh and plan again")
 	}
 
-	current := facade.probeConnector(ctx, platform)
+	current := facade.probeConnectorResolved(ctx, platform, resolved)
 	if current.State == "unreachable" || current.DryRun == nil {
 		return ConnectorDryRunApplyResult{}, failure("unavailable", "Connector health is unreachable")
 	}
@@ -416,12 +485,12 @@ func (facade *Facade) ApplyConnectorDryRun(ctx context.Context, platform contrac
 		DryRun:    saved.Plan.TargetDryRun,
 		RequestID: input.RequestID,
 	})
-	respData, _, status, writeErr := facade.backend.request(ctx, serviceID, http.MethodPost, "/v1/control/dry-run", "", body)
+	respData, _, status, writeErr := facade.backend.requestOrigin(ctx, targetEntry.origin, http.MethodPost, "/v1/control/dry-run", "", body)
 	var ctrlResp connector.DryRunControlResponse
 	decodeErr := json.Unmarshal(respData, &ctrlResp)
 
 	readCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), facade.backend.client.Timeout)
-	readback := facade.probeConnector(readCtx, platform)
+	readback := facade.probeConnectorResolved(readCtx, platform, resolved)
 	cancel()
 
 	if writeErr == nil && status >= 200 && status < 300 && decodeErr == nil && ctrlResp.OK &&
@@ -455,11 +524,28 @@ func (facade *Facade) ApplyConnectorDryRun(ctx context.Context, platform contrac
 // listedConnectorPlatforms keeps the built-in bilibili/web entries (reported as
 // unconfigured when absent) and appends every other configured platform.
 func (facade *Facade) listedConnectorPlatforms() []contracts.Platform {
+	return facade.listedConnectorPlatformsWith(nil)
+}
+
+func (facade *Facade) listedConnectorPlatformsWith(resolved map[contracts.Platform]resolvedConnector) []contracts.Platform {
 	platforms := []contracts.Platform{contracts.PlatformBilibili, contracts.PlatformWeb}
+	seen := map[contracts.Platform]bool{
+		contracts.PlatformBilibili: true,
+		contracts.PlatformWeb:      true,
+	}
+	var extra []contracts.Platform
 	for _, platform := range facade.backend.connectorPlatforms() {
-		if platform != contracts.PlatformBilibili && platform != contracts.PlatformWeb {
-			platforms = append(platforms, platform)
+		if !seen[platform] {
+			seen[platform] = true
+			extra = append(extra, platform)
 		}
 	}
-	return platforms
+	for platform := range resolved {
+		if !seen[platform] {
+			seen[platform] = true
+			extra = append(extra, platform)
+		}
+	}
+	sort.Slice(extra, func(i, j int) bool { return extra[i] < extra[j] })
+	return append(platforms, extra...)
 }

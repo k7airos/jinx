@@ -68,10 +68,11 @@ type Config struct {
 	DryRun           *bool                `json:"dry_run,omitempty"`
 	PollIntervalSec  int                  `json:"poll_interval_sec,omitempty"`
 	MaxInitialAgeSec int                  `json:"max_initial_age_sec,omitempty"`
-	SearchRefreshSec int                  `json:"search_refresh_sec,omitempty"`
-	Ego              EgoConfig            `json:"ego"`
-	Targets          []TargetConfig       `json:"targets"`
-	SearchTargets    []SearchTargetConfig `json:"search_targets,omitempty"`
+	SearchRefreshSec int                           `json:"search_refresh_sec,omitempty"`
+	Ego              EgoConfig                     `json:"ego"`
+	Targets          []TargetConfig                `json:"targets"`
+	SearchTargets    []SearchTargetConfig          `json:"search_targets,omitempty"`
+	Registry         connector.RegistryClientConfig `json:"registry,omitempty"`
 }
 
 func (c Config) IsDryRun() bool {
@@ -253,6 +254,9 @@ func (c *Config) NormalizeAndValidate() error {
 			return fmt.Errorf("search_targets[%d]: sub_reply_limit must be 0..20", i)
 		}
 		c.SearchTargets[i] = st
+	}
+	if err := connector.NormalizeRegistryClientConfig(&c.Registry); err != nil {
+		return err
 	}
 	return nil
 }

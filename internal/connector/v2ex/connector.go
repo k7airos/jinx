@@ -95,6 +95,7 @@ func NewConnector(cfg Config, driver Driver) (*Connector, error) {
 }
 
 func (c *Connector) Handler() http.Handler        { return c.server.Handler() }
+func (c *Connector) IsDryRun() bool               { return c.server.IsDryRun() }
 func (c *Connector) Platform() contracts.Platform { return Platform }
 func (c *Connector) AccountID() string            { return c.cfg.AccountID }
 func (c *Connector) ConnectorName() string        { return "v2ex-ego-connector" }

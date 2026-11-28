@@ -18,6 +18,7 @@ import (
 	"syscall"
 	"time"
 
+	"jinx/internal/connector"
 	"jinx/internal/contracts"
 	"jinx/internal/execution"
 )
@@ -470,7 +471,7 @@ func (d *Dispatcher) deliver(ctx context.Context, b batch, reply string) (delive
 		return fmt.Errorf("configuration changed; stale reply discarded")
 	}
 	rule, ok := cfg.route(b.GroupID)
-	if !ok || cfg.Bridge.DryRun || rule.DryRun || cfg.endpointDryRun(b.Rule.TargetGroupID) {
+	if !ok || cfg.Bridge.DryRun || rule.DryRun || d.endpointDryRun(cfg, b.Rule.TargetGroupID) {
 		outcome, reason = contracts.OutcomeSuppressed, "delivery_disabled"
 		return fmt.Errorf("delivery disabled")
 	}
@@ -496,11 +497,16 @@ func (d *Dispatcher) deliver(ctx context.Context, b batch, reply string) (delive
 	timeoutSec := cfg.Bridge.TimeoutSec
 	var endpoint ActionEndpointConfig
 	if platform != contracts.PlatformWeChat {
+		var entry *connector.RegistryEntry
 		var hasEndpoint bool
-		_, endpoint, hasEndpoint = cfg.actionEndpoint(b.Rule.TargetGroupID)
+		_, endpoint, entry, hasEndpoint = d.resolveActionEndpoint(cfg, b.Rule.TargetGroupID)
 		if !hasEndpoint {
 			outcome, reason = contracts.OutcomeBlocked, "action_endpoint_unconfigured"
 			return fmt.Errorf("action endpoint not configured for platform %s", platform)
+		}
+		if entry != nil && entry.HeartbeatState == connector.HeartbeatExpired && entry.LastProbeOK != nil && !*entry.LastProbeOK {
+			outcome, reason = contracts.OutcomeBlocked, "connector_unavailable"
+			return fmt.Errorf("connector heartbeat expired for platform %s", platform)
 		}
 		timeoutSec = endpoint.TimeoutSec
 		outcome, reason = contracts.OutcomeBlocked, "connector_unavailable"

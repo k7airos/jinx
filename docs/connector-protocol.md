@@ -144,6 +144,36 @@ Dispatcher 通过 `action_endpoints.<platform>` 配置连接非微信平台的�
    - 同一 `idempotency_key` + 不同请求摘要：返回 HTTP `409` `idempotency_conflict`。
    - 并发进行中：返回 HTTP `409` `status: "unknown"` / `action_in_flight`。
 
+### 2.4 Connector Protocol v1.1：自动发现与心跳检测
+
+为避免新增采集器必须在启动脚本、`dispatcher.json` 与 `control-plane -connector` 三处重复静态写死，v1.1 在保持环回与权限边界的前提下，支持 **Drop-in 清单发现** 与 **认证主动注册 + 心跳租约**：
+
+1. **Drop-in 目录发现（`-connectors-dir <dir>`）**
+   - Dispatcher 周期扫描目录内 `*.json` 清单（拒绝符号链接与组/其他用户可写文件）：
+     ```json
+     {
+       "schema_version": 1,
+       "platform": "zhihu",
+       "url": "http://127.0.0.1:18095",
+       "enabled": true,
+       "dry_run": true,
+       "timeout_sec": 30
+     }
+     ```
+   - 增删或禁用清单文件会在下次看门狗周期（默认 5s）热同步生效；静态 `action_endpoints` 优先级高于 `connectors.d`，两者均高于动态注册。
+
+2. **认证主动注册、心跳与注销**
+   - 仅当 Dispatcher 启动时配置 `-connector-token-file <0600-file>`（文件不存在时自动以 `0600` 权限生成 32 字节随机十六进制密钥；权限宽于 `0600` 时拒绝启动）才开启主动注册；未配置时返回 `501 registration_disabled`（fail-closed）。
+   - 请求必须携带 `X-JINX-Connector-Token` 请求头与本机回环端点：
+     - `POST /api/v1/connectors/register`：Dispatcher 先校验 token 与防劫持冲突（静态、`connectors.d` 或同平台活跃动态实例占用了不同 URL 时返回 `409`），再**同步反查 `GET <url>/health`** 确认 `protocol_version >= 1` 且 `health.platform == req.platform`，验真后纳入路由表并记录租约到期时间。
+     - `POST /api/v1/connectors/heartbeat`：连接器周期续约并上报最新 `dry_run`、`ready`、`targets`、`last_poll_at` 与 `last_poll_error_code`；若 Dispatcher 重启丢失内存表返回 `404 not_registered`，连接器客户端会自动重走 `Register` 自愈。
+     - `POST /api/v1/connectors/unregister`：连接器优雅退出时主动注销动态实例。
+   - `GET /api/v1/connectors`（Dispatcher 只读列表）供 `control-plane` 自动发现全部已注册/清单连接器与心跳元信息；`control-plane` 无需再重复传入 `-connector <platform>=<origin>` 参数，仍会反向校验连接器 URL 为合法 HTTP 回环 origin 并逐个探测 `/health`。
+
+3. **心跳状态机与安全底线**
+   - 状态枚举：`alive`（租约有效）、`stale`（超过 TTL 1x，看门狗触发一次 `/health` 反查）、`expired`（超过 TTL 2x；若 `/health` 也失败则阻断投递 `connector_unavailable`，超过 TTL 10x 清理失效动态记录）、`untracked`（纯静态/`connectors.d` 无主动心跳条目，由看门狗每 15s 探活）。
+   - 动态发现的连接器默认受自身 `dry_run: true` 与 Dispatcher 容器白名单（`group_whitelist` / `group_rules`）双重拦截，新发现连接器不会越权自动外发。
+
 ---
 
 ## 3. 确认语义与失败分类（绝不盲目重试）

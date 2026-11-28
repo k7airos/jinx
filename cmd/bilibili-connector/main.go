@@ -12,6 +12,7 @@ import (
 	"flag"
 	"fmt"
 	"log"
+	"net"
 	"net/http"
 	"os"
 	"os/signal"
@@ -20,6 +21,7 @@ import (
 	"syscall"
 	"time"
 
+	"jinx/internal/connector"
 	"jinx/internal/connector/bilibili"
 )
 
@@ -31,6 +33,8 @@ func main() {
 	searchLimit := flag.Int("search-limit", 5, "number of videos to return when -search is set")
 	showComments := flag.Bool("show-comments", false, "print collected comments when -once is set")
 	skipRelay := flag.Bool("skip-relay", false, "with -once, inspect comments without pushing to Relay or writing cursor")
+	backfill := flag.Bool("backfill", false, "with -once, include historical comments older than max_initial_age_sec")
+	backfillLimit := flag.Int("backfill-limit", 0, "with -once, maximum number of comments to forward (0 means unlimited)")
 	jsonOut := flag.Bool("json", false, "print JSON output for -search or -once")
 	flag.Parse()
 
@@ -100,7 +104,11 @@ func main() {
 	}
 
 	if *once {
-		report, err := conn.PollOnceWithOptions(ctx, bilibili.PollOptions{SkipRelay: *skipRelay})
+		report, err := conn.PollOnceWithOptions(ctx, bilibili.PollOptions{
+			SkipRelay:         *skipRelay,
+			IncludeHistorical: *backfill,
+			MaxForward:        *backfillLimit,
+		})
 		if *jsonOut {
 			out := struct {
 				Report   bilibili.PollReport `json:"report"`
@@ -141,14 +149,34 @@ func main() {
 		log.Fatal("another bilibili-connector instance is already running")
 	}
 
+	ln, err := net.Listen("tcp", cfg.ListenAddr)
+	if err != nil {
+		log.Fatalf("listen %s: %v", cfg.ListenAddr, err)
+	}
+	defer ln.Close()
+
 	srv := &http.Server{
-		Addr:              cfg.ListenAddr,
 		Handler:           conn.Handler(),
 		ReadHeaderTimeout: 5 * time.Second,
 		ReadTimeout:       10 * time.Second,
 		WriteTimeout:      time.Duration(cfg.Ego.TimeoutSec+15) * time.Second,
 		IdleTimeout:       60 * time.Second,
 		MaxHeaderBytes:    16 << 10,
+	}
+
+	var regClient *connector.RegistryClient
+	regDone := make(chan struct{})
+	if cfg.Registry.URL != "" {
+		regClient, err = connector.NewRegistryClient(cfg.Registry, ln.Addr().String(), conn, conn.IsDryRun)
+		if err != nil {
+			log.Fatalf("init registry client: %v", err)
+		}
+		go func() {
+			defer close(regDone)
+			regClient.Run(ctx)
+		}()
+	} else {
+		close(regDone)
 	}
 
 	pollDone := make(chan struct{})
@@ -159,17 +187,23 @@ func main() {
 
 	go func() {
 		<-ctx.Done()
+		if regClient != nil {
+			unregCtx, unregCancel := context.WithTimeout(context.Background(), 2*time.Second)
+			_ = regClient.Unregister(unregCtx)
+			unregCancel()
+		}
 		shutCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
 		_ = srv.Shutdown(shutCtx)
 	}()
 
-	log.Printf("bilibili-connector listening on http://%s (dry_run=%t, targets=%d, search_targets=%d)", cfg.ListenAddr, cfg.IsDryRun(), len(cfg.Targets), len(cfg.SearchTargets))
-	if err := srv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+	log.Printf("bilibili-connector listening on http://%s (dry_run=%t, targets=%d, search_targets=%d)", ln.Addr(), cfg.IsDryRun(), len(cfg.Targets), len(cfg.SearchTargets))
+	if err := srv.Serve(ln); err != nil && !errors.Is(err, http.ErrServerClosed) {
 		log.Printf("http server error: %v", err)
 		stop()
 	}
 	<-pollDone
+	<-regDone
 	fmt.Fprintln(os.Stderr, "bilibili-connector stopped")
 }
 

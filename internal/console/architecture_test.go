@@ -102,7 +102,7 @@ func TestArchitectureSnapshotUsesOnlyHealthTraceAndCatalog(t *testing.T) {
 	stub.mu.Lock()
 	defer stub.mu.Unlock()
 	for _, path := range stub.paths {
-		if path != "/health" && path != "/api/trace/snapshot" && path != "/api/trace/events" {
+		if path != "/health" && path != "/api/trace/snapshot" && path != "/api/trace/events" && path != "/api/v1/connectors" {
 			t.Fatalf("unexpected dispatcher read: %s", path)
 		}
 	}

@@ -22,11 +22,13 @@ import (
 )
 
 type arguments struct {
-	config          string
-	executionConfig string
-	backendsJSON    string
-	localPolicy     string
-	checkConfig     bool
+	config             string
+	executionConfig    string
+	backendsJSON       string
+	localPolicy        string
+	connectorsDir      string
+	connectorTokenFile string
+	checkConfig        bool
 }
 
 func parseArgs(argv []string, output io.Writer) (arguments, error) {
@@ -37,6 +39,8 @@ func parseArgs(argv []string, output io.Writer) (arguments, error) {
 	flags.StringVar(&args.executionConfig, "execution-config", "", "existing execution engine store (required)")
 	flags.StringVar(&args.backendsJSON, "backends-json", "", "private operator backend definitions (required)")
 	flags.StringVar(&args.localPolicy, "local-policy", "", "optional operator-owned local policy file (0600); defaults to JINX_LOCAL_POLICY")
+	flags.StringVar(&args.connectorsDir, "connectors-dir", "", "optional drop-in directory (*.json) for connector auto-discovery")
+	flags.StringVar(&args.connectorTokenFile, "connector-token-file", "", "optional 0600 token file enabling authenticated connector self-registration")
 	flags.BoolVar(&args.checkConfig, "check-config", false, "validate dispatcher configuration without starting services")
 	if err := flags.Parse(argv); err != nil {
 		return args, err
@@ -51,7 +55,7 @@ func parseArgs(argv []string, output io.Writer) (arguments, error) {
 	if args.localPolicy == "" {
 		args.localPolicy = os.Getenv("JINX_LOCAL_POLICY")
 	}
-	for _, path := range []*string{&args.config, &args.executionConfig, &args.backendsJSON, &args.localPolicy} {
+	for _, path := range []*string{&args.config, &args.executionConfig, &args.backendsJSON, &args.localPolicy, &args.connectorsDir, &args.connectorTokenFile} {
 		if *path == "" {
 			continue
 		}
@@ -117,7 +121,12 @@ func loadDispatcher(args arguments, create dispatcherFactory) (dispatcherService
 	if err != nil || (host != "127.0.0.1" && host != "::1" && host != "localhost") {
 		return nil, "", errors.New("dispatcher listen address must bind to loopback")
 	}
-	service, err := create(args.config, dispatcher.Options{Runner: runner, LocalPolicyPath: args.localPolicy})
+	service, err := create(args.config, dispatcher.Options{
+		Runner:             runner,
+		LocalPolicyPath:    args.localPolicy,
+		ConnectorsDir:      args.connectorsDir,
+		ConnectorTokenFile: args.connectorTokenFile,
+	})
 	return service, config.Server.ListenAddr, err
 }
 
@@ -127,7 +136,11 @@ func run(ctx context.Context, argv []string, output io.Writer) error {
 		return err
 	}
 	if args.checkConfig {
-		if err := dispatcher.ValidateConfigFile(args.config, args.localPolicy); err != nil {
+		if err := dispatcher.ValidateConfigFileWithOptions(args.config, dispatcher.Options{
+			LocalPolicyPath:    args.localPolicy,
+			ConnectorsDir:      args.connectorsDir,
+			ConnectorTokenFile: args.connectorTokenFile,
+		}); err != nil {
 			return err
 		}
 		_, err := fmt.Fprintln(output, "configuration valid")

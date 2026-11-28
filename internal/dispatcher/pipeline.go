@@ -759,7 +759,7 @@ func (d *Dispatcher) processBatch(b batch) bool {
 		d.audit(b, "promo_shadow", reply)
 		return d.traceTerminal(b, contracts.OutcomeSuppressed, "promo_shadow")
 	}
-	if b.Config.Bridge.DryRun || b.Rule.DryRun || b.Config.endpointDryRun(b.Rule.TargetGroupID) {
+	if b.Config.Bridge.DryRun || b.Rule.DryRun || d.endpointDryRun(b.Config, b.Rule.TargetGroupID) {
 		d.mu.Lock()
 		d.state.Stats.TotalDryRun++
 		_ = d.saveStateLocked()

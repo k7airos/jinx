@@ -314,7 +314,7 @@ func TestHTTPBoundaryAndDataMinimization(t *testing.T) {
 		}
 	}
 	for _, path := range stub.paths {
-		if path != "GET /health" && path != "GET /api/stats" && path != "GET /api/config" && path != "GET /api/trace/snapshot" && path != "GET /api/v1/console-config" && path != "GET /api/v1/config" {
+		if path != "GET /health" && path != "GET /api/stats" && path != "GET /api/config" && path != "GET /api/trace/snapshot" && path != "GET /api/v1/connectors" && path != "GET /api/v1/console-config" && path != "GET /api/v1/config" {
 			t.Fatalf("unsafe probe: %s", path)
 		}
 	}

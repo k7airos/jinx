@@ -572,6 +572,11 @@ export interface ConnectorView {
   lastPollErrorCode: string | null;
   reason: string | null;
   protocolVersion: number | null;
+  discoverySource?: 'static' | 'dropin' | 'dynamic' | string | null;
+  heartbeatState?: 'alive' | 'stale' | 'expired' | 'untracked' | string | null;
+  lastHeartbeatAt?: ISOTime | null;
+  heartbeatTtlSec?: number | null;
+  registeredAt?: ISOTime | null;
   observedAt: ISOTime;
 }
 

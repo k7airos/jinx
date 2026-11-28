@@ -74,6 +74,11 @@ func (s *Server) isDryRun() bool {
 	return s.dryRun
 }
 
+// IsDryRun reports the current runtime dry-run state.
+func (s *Server) IsDryRun() bool {
+	return s.isDryRun()
+}
+
 func (s *Server) Handler() http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/health", s.handleHealth)

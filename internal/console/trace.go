@@ -204,7 +204,7 @@ func (facade *Facade) Bootstrap(ctx context.Context) Bootstrap {
 		_, streamErr = facade.backend.traceEvents(ctx, snapshot.Cursor, false)
 	}
 	capabilities := Capabilities()
-	if len(facade.backend.connectorPlatforms()) > 0 {
+	if len(facade.resolveConnectorMap(ctx)) > 0 {
 		capabilities["connectors"] = Availability{Supported: true, Enabled: true}
 	}
 	if facade.backend.bases["relay"] != "" {

@@ -1277,6 +1277,34 @@ func StreamIDLabel(id string) string {
 	}
 }
 
+func DiscoverySourceLabel(v string) string {
+	switch strings.ToLower(strings.TrimSpace(v)) {
+	case "dynamic":
+		return "主动注册发现"
+	case "dropin":
+		return "目录发现"
+	case "static":
+		return "静态配置"
+	default:
+		return nonEmpty(v, "未知来源")
+	}
+}
+
+func HeartbeatStateLabel(v string) string {
+	switch strings.ToLower(strings.TrimSpace(v)) {
+	case "alive":
+		return "心跳正常"
+	case "stale":
+		return "心跳延迟"
+	case "expired":
+		return "心跳超时"
+	case "untracked":
+		return "仅探活"
+	default:
+		return nonEmpty(v, "未知心跳")
+	}
+}
+
 func ControlReasonCN(raw string) string {
 	trimmed := strings.TrimSpace(raw)
 	if trimmed == "" {
@@ -1286,6 +1314,8 @@ func ControlReasonCN(raw string) string {
 		return trimmed
 	}
 	switch trimmed {
+	case "heartbeat_expired":
+		return "连接器心跳超时"
 	case "No verified runtime implementation is connected":
 		return "当前未启用运行时进程控制（只读展示）"
 	case "No authorized memory/disk configuration reader is connected":

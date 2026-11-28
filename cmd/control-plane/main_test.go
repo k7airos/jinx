@@ -56,7 +56,7 @@ func TestAssembleInjectsSharedArchitectureCatalog(t *testing.T) {
 			_, _ = io.WriteString(writer, `{"status":"ready","protocol_version":1,"group_routing":true,"serial_ui":true,"accessibility_trusted":true,"screen_capture_authorized":true}`)
 			return
 		}
-		if request.URL.Path != "/api/trace/snapshot" {
+		if request.URL.Path != "/api/trace/snapshot" && request.URL.Path != "/api/v1/connectors" {
 			t.Errorf("unexpected upstream read: %s", request.URL.Path)
 		}
 		writer.WriteHeader(http.StatusNotFound)

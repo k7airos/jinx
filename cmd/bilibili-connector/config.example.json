@@ -23,5 +23,11 @@
       "sort_mode": "time",
       "sub_reply_limit": 5
     }
-  ]
+  ],
+  "registry": {
+    "url": "http://127.0.0.1:18088",
+    "token_file": "./connector-registry.token",
+    "heartbeat_interval_sec": 10,
+    "heartbeat_ttl_sec": 35
+  }
 }
